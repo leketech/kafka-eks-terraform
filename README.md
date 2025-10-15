@@ -66,31 +66,22 @@ To use the GitHub Actions workflows, you need to set up the following repository
 
 1. `TF_STATE_BUCKET` - S3 bucket name for Terraform state
 2. `TF_STATE_LOCK_TABLE` - DynamoDB table name for state locking
-3. `TF_GITHUB_ACTIONS_ROLE_ARN` - The full ARN of the IAM role created by Terraform (output from `terraform apply`)
+
+Note: The AWS role ARN has been hardcoded in the workflows for testing purposes. In production, you should use secrets as shown in the previous version.
+
+For testing, the role ARN is currently hardcoded as:
+`arn:aws:iam::907849381252:role/GitHubActionsKafkaDeployRole-bk02fznl`
 
 ### Setting up the secrets:
 
-1. First, deploy the infrastructure with Terraform:
-   ```bash
-   cd terraform/environments/prod
-   terraform init
-   terraform apply
-   ```
-
-2. After the apply completes, get the role ARN from Terraform outputs:
-   ```bash
-   terraform output github_actions_role_arn
-   ```
-
-3. Set this as the `TF_GITHUB_ACTIONS_ROLE_ARN` secret in your GitHub repository
+1. Set up the `TF_STATE_BUCKET` and `TF_STATE_LOCK_TABLE` secrets in your GitHub repository
 
 ### Troubleshooting:
 
 If you encounter credential errors, verify that:
-1. The `TF_GITHUB_ACTIONS_ROLE_ARN` secret is set correctly
-2. The role ARN should look like: `arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME`
-3. The role has the proper trust policy for GitHub Actions OIDC
-4. The role has all necessary permissions for EKS, EC2, IAM, etc.
+1. The hardcoded role ARN exists in your AWS account
+2. The role has the proper trust policy for GitHub Actions OIDC
+3. The role has all necessary permissions for EKS, EC2, IAM, etc.
 
 ## Quick Start
 

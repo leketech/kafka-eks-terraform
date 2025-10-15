@@ -29,14 +29,14 @@ jobs:
       - name: Debug - Show Environment
         run: |
           echo "AWS Region: ${{ env.AWS_REGION }}"
-          echo "Role ARN: ${{ secrets.TF_GITHUB_ACTIONS_ROLE_ARN }}"
+          echo "Hardcoded Role ARN: arn:aws:iam::907849381252:role/GitHubActionsKafkaDeployRole-bk02fznl"
           echo "State Bucket: ${{ secrets.TF_STATE_BUCKET }}"
           echo "DynamoDB Table: ${{ secrets.TF_STATE_LOCK_TABLE }}"
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.TF_GITHUB_ACTIONS_ROLE_ARN }}
+          role-to-assume: arn:aws:iam::907849381252:role/GitHubActionsKafkaDeployRole-bk02fznl
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-actions-${{ github.sha }}
 
