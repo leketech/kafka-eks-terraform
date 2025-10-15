@@ -32,12 +32,12 @@ jobs:
       - name: Debug - Show Environment
         run: |
           echo "AWS Region: ${{ env.AWS_REGION }}"
-          echo "Hardcoded Role ARN: arn:aws:iam::907849381252:role/GitHubActionsKafkaDeployRole-bk02fznl"
+          echo "Role ARN: ${{ secrets.TF_GITHUB_ACTIONS_ROLE_ARN }}"
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::907849381252:role/GitHubActionsKafkaDeployRole-bk02fznl
+          role-to-assume: ${{ secrets.TF_GITHUB_ACTIONS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-actions-${{ github.sha }}
 
@@ -52,7 +52,7 @@ jobs:
 
       - name: Update kubeconfig with AWS credentials
         run: |
-          aws eks update-kubeconfig --name kafka-eks --region ${{ env.AWS_REGION }}
+          aws eks update-kubeconfig --name kafka-eks-new --region ${{ env.AWS_REGION }}
 
       - name: Wait for Kubernetes Cluster
         run: |
