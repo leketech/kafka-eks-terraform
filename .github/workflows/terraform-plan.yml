@@ -26,12 +26,23 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      - name: Debug - Show Environment
+        run: |
+          echo "AWS Region: ${{ env.AWS_REGION }}"
+          echo "Role ARN: ${{ secrets.TF_GITHUB_ACTIONS_ROLE_ARN }}"
+          echo "State Bucket: ${{ secrets.TF_STATE_BUCKET }}"
+          echo "DynamoDB Table: ${{ secrets.TF_STATE_LOCK_TABLE }}"
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.TF_GITHUB_ACTIONS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-actions-${{ github.sha }}
+
+      - name: Debug - Verify AWS Credentials
+        run: |
+          aws sts get-caller-identity
 
       - name: Terraform Init
         run: |

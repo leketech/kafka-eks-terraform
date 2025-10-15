@@ -68,10 +68,29 @@ To use the GitHub Actions workflows, you need to set up the following repository
 2. `TF_STATE_LOCK_TABLE` - DynamoDB table name for state locking
 3. `TF_GITHUB_ACTIONS_ROLE_ARN` - The full ARN of the IAM role created by Terraform (output from `terraform apply`)
 
-After running `terraform apply`, get the role ARN from the output:
-``bash
-terraform output github_actions_role_arn
-```
+### Setting up the secrets:
+
+1. First, deploy the infrastructure with Terraform:
+   ```bash
+   cd terraform/environments/prod
+   terraform init
+   terraform apply
+   ```
+
+2. After the apply completes, get the role ARN from Terraform outputs:
+   ```bash
+   terraform output github_actions_role_arn
+   ```
+
+3. Set this as the `TF_GITHUB_ACTIONS_ROLE_ARN` secret in your GitHub repository
+
+### Troubleshooting:
+
+If you encounter credential errors, verify that:
+1. The `TF_GITHUB_ACTIONS_ROLE_ARN` secret is set correctly
+2. The role ARN should look like: `arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME`
+3. The role has the proper trust policy for GitHub Actions OIDC
+4. The role has all necessary permissions for EKS, EC2, IAM, etc.
 
 ## Quick Start
 
@@ -158,3 +177,47 @@ Metrics are exposed via Kafka Exporter on port 9308. Access them with:
 kubectl port-forward svc/kafka-exporter -n kafka 9308:9308
 ```
 Then visit `http://localhost:9308/metrics`
+
+## Troubleshooting
+
+### Common GitHub Actions Issues
+
+1. **"Credentials could not be loaded" error**:
+   - Verify that `TF_GITHUB_ACTIONS_ROLE_ARN` secret is set correctly
+   - Check that the role ARN is in the correct format: `arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME`
+   - Ensure the role exists in your AWS account
+   - Verify the role has the proper trust policy for GitHub Actions OIDC
+
+2. **"Request ARN is invalid" error**:
+   - Make sure you're using the full ARN, not just the role name
+   - Check for typos in the ARN
+   - Verify the AWS account ID in the ARN is correct
+
+3. **Kubernetes connection issues**:
+   - Ensure the EKS cluster is successfully created before running the Kafka deployment workflow
+   - Check that the cluster name matches what's configured in the Terraform variables
+   - Verify that the IAM role has permissions to access the EKS cluster
+
+### Debugging Steps
+
+1. Add debug steps to your GitHub Actions workflow to print out environment variables:
+   ```yaml
+   - name: Debug - Show Environment
+     run: |
+       echo "AWS Region: ${{ env.AWS_REGION }}"
+       echo "Role ARN: ${{ secrets.TF_GITHUB_ACTIONS_ROLE_ARN }}"
+   ```
+
+2. Add a step to verify AWS credentials after configuration:
+   ```yaml
+   - name: Debug - Verify AWS Credentials
+     run: |
+       aws sts get-caller-identity
+   ```
+
+3. Check the Terraform outputs to ensure the role was created correctly:
+   ```bash
+   terraform output github_actions_role_arn
+   terraform output github_actions_role_name
+   ```
+
