@@ -36,5 +36,5 @@ output "cluster_primary_security_group_id" {
 
 output "node_group_role_name" {
   description = "Node group role name"
-  value       = module.eks.eks_managed_node_groups["eks_nodes"].node_role_name
+  value       = module.eks.eks_managed_node_groups["eks_nodes"].iam_role_name
 }

@@ -1,5 +1,11 @@
-# Create or import OIDC provider
+# Import existing OIDC provider or create new one if it doesn't exist
+data "aws_iam_openid_connect_provider" "existing_github" {
+  url = "https://token.actions.githubusercontent.com"
+}
+
 resource "aws_iam_openid_connect_provider" "github" {
+  count = length(data.aws_iam_openid_connect_provider.existing_github.id) > 0 ? 0 : 1
+
   url = "https://token.actions.githubusercontent.com"
 
   client_id_list = [
@@ -12,9 +18,14 @@ resource "aws_iam_openid_connect_provider" "github" {
   ]
 }
 
-# Create IAM role for GitHub Actions
+# Reference existing OIDC provider
+data "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
+}
+
+# Create IAM role for GitHub Actions with a unique name
 resource "aws_iam_role" "github_actions" {
-  name = "GitHubActionsKafkaDeployRole"
+  name = "GitHubActionsKafkaDeployRole-${random_string.suffix.result}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -22,7 +33,7 @@ resource "aws_iam_role" "github_actions" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.github.arn
+          Federated = data.aws_iam_openid_connect_provider.github.arn
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
@@ -36,6 +47,13 @@ resource "aws_iam_role" "github_actions" {
       }
     ]
   })
+}
+
+# Generate a random suffix for unique resource names
+resource "random_string" "suffix" {
+  length  = 8
+  special = false
+  upper   = false
 }
 
 # Attach permissions required by Terraform to deploy EKS + networking + state backend

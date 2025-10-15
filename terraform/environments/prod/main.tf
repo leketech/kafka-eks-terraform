@@ -22,6 +22,10 @@ terraform {
       source  = "hashicorp/time"
       version = "0.9.1"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "3.1.0"
+    }
   }
 }
 
@@ -88,24 +92,30 @@ module "eks" {
 
 data "aws_eks_cluster" "kafka" {
   name = module.eks.cluster_name
+
+  depends_on = [module.eks]
 }
 
 data "aws_eks_cluster_auth" "kafka" {
   name = module.eks.cluster_name
+
+  depends_on = [module.eks]
 }
 
-# Add a small delay to ensure the cluster is fully ready
+// Add a small delay to ensure the cluster is fully ready
 resource "time_sleep" "wait_for_cluster_data" {
   create_duration = "60s"
+
+  depends_on = [module.eks]
 }
 
-# Kubernetes provider configuration that works both locally and in GitHub Actions
+// Kubernetes provider configuration that works both locally and in GitHub Actions
 provider "kubernetes" {
   host                   = data.aws_eks_cluster.kafka.endpoint
-  cluster_ca_certificate = base64decode(data.aws_eks_cluster.kafka.certificate_authority_data)
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.kafka.certificate_authority[0].data)
   token                  = data.aws_eks_cluster_auth.kafka.token
   
-  # For GitHub Actions, we'll override this with exec-based auth
+  // For GitHub Actions, we'll override this with exec-based auth
   exec {
     api_version = "client.authentication.k8s.io/v1beta1"
     command     = "aws"
@@ -116,10 +126,10 @@ provider "kubernetes" {
 provider "helm" {
   kubernetes {
     host                   = data.aws_eks_cluster.kafka.endpoint
-    cluster_ca_certificate = base64decode(data.aws_eks_cluster.kafka.certificate_authority_data)
+    cluster_ca_certificate = base64decode(data.aws_eks_cluster.kafka.certificate_authority[0].data)
     token                  = data.aws_eks_cluster_auth.kafka.token
     
-    # For GitHub Actions, we'll override this with exec-based auth
+    // For GitHub Actions, we'll override this with exec-based auth
     exec {
       api_version = "client.authentication.k8s.io/v1beta1"
       command     = "aws"
@@ -128,7 +138,7 @@ provider "helm" {
   }
 }
 
-# Add a data source to verify the Kubernetes provider is working
+// Add a data source to verify the Kubernetes provider is working
 data "kubernetes_service" "test" {
   depends_on = [time_sleep.wait_for_cluster_data]
 

@@ -23,11 +23,14 @@ module "eks" {
 
   enable_cluster_creator_admin_permissions = var.enable_cluster_creator_admin_permissions
 
-  cluster_addons = {
-    aws-ebs-csi-driver = {
-      most_recent = true
-    }
-  }
+  # Comment out the addon since it already exists
+  # cluster_addons = {
+  #   aws-ebs-csi-driver = {
+  #     most_recent                = true
+  #     preserve                   = true
+  #     resolve_conflicts_on_create = "NONE"
+  #   }
+  # }
 
   tags = {
     Environment = "dev"
