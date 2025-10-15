@@ -8,6 +8,9 @@ on:
 env:
   TF_VERSION: "1.9.0"
   AWS_REGION: "us-east-1"
+  AWS_ACCOUNT_ID: "907849381252"
+  CLUSTER_NAME: "kafka-eks-new"
+  GITHUB_REPO: "leketech/kafka-eks-terraform"
 
 jobs:
   apply:
@@ -62,7 +65,13 @@ jobs:
       - name: Terraform Plan
         run: |
           cd terraform/environments/prod
-          terraform plan -out=tfplan
+          terraform plan -out=tfplan \
+            -var="aws_region=${{ env.AWS_REGION }}" \
+            -var="aws_account_id=${{ env.AWS_ACCOUNT_ID }}" \
+            -var="cluster_name=${{ env.CLUSTER_NAME }}" \
+            -var="github_repo=${{ env.GITHUB_REPO }}" \
+            -var="terraform_state_bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -var="dynamodb_table=${{ secrets.TF_STATE_LOCK_TABLE }}"
 
       - name: Terraform Apply
         run: |

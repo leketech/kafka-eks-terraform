@@ -10,6 +10,7 @@ on:
 env:
   TF_VERSION: "1.9.0"
   AWS_REGION: "us-east-1"
+  CLUSTER_NAME: "kafka-eks-new"
 
 jobs:
   deploy:
@@ -52,7 +53,7 @@ jobs:
 
       - name: Update kubeconfig with AWS credentials
         run: |
-          aws eks update-kubeconfig --name kafka-eks-new --region ${{ env.AWS_REGION }}
+          aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
       - name: Wait for Kubernetes Cluster
         run: |
