@@ -147,3 +147,14 @@ data "kubernetes_service" "test" {
     namespace = "default"
   }
 }
+
+// Outputs for GitHub Actions
+output "github_actions_role_name" {
+  description = "Name of the IAM role for GitHub Actions OIDC authentication"
+  value       = module.oidc.github_actions_role_name
+}
+
+output "github_actions_role_arn" {
+  description = "ARN of the IAM role for GitHub Actions OIDC authentication"
+  value       = module.oidc.github_actions_role_arn
+}

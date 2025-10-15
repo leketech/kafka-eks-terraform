@@ -31,13 +31,8 @@ kafka-eks-terraform/
 │   ├── namespaces/
 │   │   └── kafka.yaml
 │   ├── kafka/
-│   │   ├── zookeeper/
-│   │   │   ├── statefulset.yaml
-│   │   │   └── service.yaml
-│   │   ├── broker/
-│   │   │   ├── statefulset.yaml
-│   │   │   └── service.yaml
-│   │   └── values.yaml (for Helm)
+│   │   └── strimzi/
+│   │       └── kafka-cluster.yaml
 │   ├── monitoring/
 │   │   └── kafka-exporter.yaml
 │   └── storage/
@@ -64,7 +59,20 @@ kafka-eks-terraform/
 - Terraform >= 1.6
 - AWS CLI configured
 - kubectl
-- Helm
+
+## GitHub Actions Setup
+
+To use the GitHub Actions workflows, you need to set up the following repository secrets:
+
+1. `AWS_ACCOUNT_ID` - Your AWS Account ID
+2. `TF_STATE_BUCKET` - S3 bucket name for Terraform state
+3. `TF_STATE_LOCK_TABLE` - DynamoDB table name for state locking
+4. `GITHUB_ACTIONS_ROLE_NAME` - The name of the IAM role created by Terraform (output from `terraform apply`)
+
+After running `terraform apply`, get the role name from the output:
+```bash
+terraform output github_actions_role_name
+```
 
 ## Quick Start
 
@@ -92,17 +100,22 @@ kafka-eks-terraform/
    terraform apply
    ```
 
-5. **Configure kubectl**
+5. **Get the GitHub Actions role name**
+   ```bash
+   terraform output github_actions_role_name
+   ```
+   Set this as the `GITHUB_ACTIONS_ROLE_NAME` secret in your GitHub repository.
+
+6. **Configure kubectl**
    ```bash
    aws eks update-kubeconfig --name kafka-eks --region us-east-1
    ```
 
-6. **Deploy Kafka**
+7. **Deploy Kafka**
    ```bash
    kubectl apply -f kubernetes/namespaces/
    kubectl apply -f kubernetes/storage/
-   kubectl apply -f kubernetes/kafka/zookeeper/
-   kubectl apply -f kubernetes/kafka/broker/
+   kubectl apply -f kubernetes/kafka/strimzi/
    kubectl apply -f kubernetes/monitoring/
    ```
 
@@ -116,8 +129,8 @@ kafka-eks-terraform/
 
 ### Kubernetes Resources
 
-- **Zookeeper**: Coordination service for Kafka deployed as StatefulSets
-- **Kafka Brokers**: Message brokers deployed as StatefulSets with persistent storage
+- **Strimzi Kafka Operator**: Manages Kafka cluster deployment and operations
+- **Kafka Cluster**: Message brokers managed by Strimzi with persistent storage
 - **Monitoring**: Kafka Exporter for exposing metrics to Prometheus
 - **Storage**: Custom storage class for persistent volumes
 
