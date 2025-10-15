@@ -67,7 +67,7 @@ To use the GitHub Actions workflows, you need to set up the following repository
 1. `AWS_ACCOUNT_ID` - Your AWS Account ID
 2. `TF_STATE_BUCKET` - S3 bucket name for Terraform state
 3. `TF_STATE_LOCK_TABLE` - DynamoDB table name for state locking
-4. `GITHUB_ACTIONS_ROLE_NAME` - The name of the IAM role created by Terraform (output from `terraform apply`)
+4. `TF_GITHUB_ACTIONS_ROLE_NAME` - The name of the IAM role created by Terraform (output from `terraform apply`)
 
 After running `terraform apply`, get the role name from the output:
 ```bash
