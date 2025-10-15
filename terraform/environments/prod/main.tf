@@ -102,20 +102,12 @@ data "aws_eks_cluster_auth" "kafka" {
   depends_on = [module.eks]
 }
 
-// Add a small delay to ensure the cluster is fully ready
-resource "time_sleep" "wait_for_cluster_data" {
-  create_duration = "60s"
-
-  depends_on = [module.eks]
-}
-
 // Kubernetes provider configuration that works both locally and in GitHub Actions
 provider "kubernetes" {
   host                   = data.aws_eks_cluster.kafka.endpoint
   cluster_ca_certificate = base64decode(data.aws_eks_cluster.kafka.certificate_authority[0].data)
-  token                  = data.aws_eks_cluster_auth.kafka.token
   
-  // For GitHub Actions, we'll override this with exec-based auth
+  // Use exec-based auth for both local and GitHub Actions environments
   exec {
     api_version = "client.authentication.k8s.io/v1beta1"
     command     = "aws"
@@ -127,9 +119,8 @@ provider "helm" {
   kubernetes {
     host                   = data.aws_eks_cluster.kafka.endpoint
     cluster_ca_certificate = base64decode(data.aws_eks_cluster.kafka.certificate_authority[0].data)
-    token                  = data.aws_eks_cluster_auth.kafka.token
     
-    // For GitHub Actions, we'll override this with exec-based auth
+    // Use exec-based auth for both local and GitHub Actions environments
     exec {
       api_version = "client.authentication.k8s.io/v1beta1"
       command     = "aws"
@@ -138,15 +129,25 @@ provider "helm" {
   }
 }
 
-// Add a data source to verify the Kubernetes provider is working
-data "kubernetes_service" "test" {
-  depends_on = [time_sleep.wait_for_cluster_data]
+// Remove the static token configuration that was causing issues
+// token = data.aws_eks_cluster_auth.kafka.token
 
-  metadata {
-    name      = "kubernetes"
-    namespace = "default"
-  }
+// Add a small delay to ensure the cluster is fully ready
+resource "time_sleep" "wait_for_cluster_data" {
+  create_duration = "60s"
+
+  depends_on = [module.eks]
 }
+
+// Remove the problematic data source that was causing Kubernetes connection issues
+// data "kubernetes_service" "test" {
+//   depends_on = [time_sleep.wait_for_cluster_data]
+//
+//   metadata {
+//     name      = "kubernetes"
+//     namespace = "default"
+//   }
+// }
 
 // Outputs for GitHub Actions
 output "github_actions_role_name" {

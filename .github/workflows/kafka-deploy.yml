@@ -43,7 +43,7 @@ jobs:
 
       - name: Update kubeconfig with AWS credentials
         run: |
-          aws eks update-kubeconfig --name kafka-eks --region ${{ env.AWS_REGION }} --role-arn ${{ secrets.TF_GITHUB_ACTIONS_ROLE_ARN }}
+          aws eks update-kubeconfig --name kafka-eks --region ${{ env.AWS_REGION }}
 
       - name: Wait for Kubernetes Cluster
         run: |
