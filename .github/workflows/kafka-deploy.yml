@@ -1,0 +1,85 @@
+name: Deploy Kafka
+
+on:
+  workflow_run:
+    workflows: ["Terraform Apply"]
+    types:
+      - completed
+  workflow_dispatch:
+
+env:
+  TF_VERSION: "1.9.0"
+  AWS_REGION: "us-east-1"
+
+jobs:
+  deploy:
+    name: Deploy Kafka
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionsKafkaDeployRole
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-${{ github.sha }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "1.32.0"
+
+      - name: Update kubeconfig with AWS credentials
+        run: |
+          aws eks update-kubeconfig --name kafka-eks --region ${{ env.AWS_REGION }} --role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionsKafkaDeployRole
+
+      - name: Wait for Kubernetes Cluster
+        run: |
+          timeout=600
+          interval=30
+          elapsed=0
+          
+          while [ $elapsed -lt $timeout ]; do
+            if kubectl cluster-info >/dev/null 2>&1; then
+              echo "✅ Kubernetes cluster is ready"
+              kubectl get nodes
+              break
+            fi
+            echo "⏳ Waiting for Kubernetes cluster to be ready... ($elapsed/$timeout seconds elapsed)"
+            sleep $interval
+            elapsed=$((elapsed + interval))
+          done
+          
+          if [ $elapsed -ge $timeout ]; then
+            echo "⚠️ Timeout waiting for Kubernetes cluster to be ready"
+            exit 1
+          fi
+
+      - name: Apply Kubernetes manifests
+        run: |
+          # Create namespace
+          kubectl apply -f kubernetes/namespaces/
+          
+          # Apply storage class
+          kubectl apply -f kubernetes/storage/
+          
+          # Apply Zookeeper manifests
+          kubectl apply -f kubernetes/kafka/zookeeper/
+          
+          # Apply Kafka manifests
+          kubectl apply -f kubernetes/kafka/broker/
+          
+          # Apply monitoring
+          kubectl apply -f kubernetes/monitoring/
