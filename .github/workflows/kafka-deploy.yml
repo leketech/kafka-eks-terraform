@@ -75,11 +75,31 @@ jobs:
           # Apply storage class
           kubectl apply -f kubernetes/storage/
           
-          # Apply Zookeeper manifests
-          kubectl apply -f kubernetes/kafka/zookeeper/
-          
-          # Apply Kafka manifests
-          kubectl apply -f kubernetes/kafka/broker/
+          # Apply Strimzi Kafka cluster
+          kubectl apply -f kubernetes/kafka/strimzi/
           
           # Apply monitoring
           kubectl apply -f kubernetes/monitoring/
+
+      - name: Wait for Kafka cluster to be ready
+        run: |
+          timeout=900
+          interval=30
+          elapsed=0
+          
+          while [ $elapsed -lt $timeout ]; do
+            if kubectl get kafka kafka -n kafka -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' | grep -q "True"; then
+              echo "✅ Kafka cluster is ready"
+              kubectl get pods -n kafka
+              break
+            fi
+            echo "⏳ Waiting for Kafka cluster to be ready... ($elapsed/$timeout seconds elapsed)"
+            sleep $interval
+            elapsed=$((elapsed + interval))
+          done
+          
+          if [ $elapsed -ge $timeout ]; then
+            echo "⚠️ Timeout waiting for Kafka cluster to be ready"
+            kubectl get kafka kafka -n kafka -o yaml
+            exit 1
+          fi

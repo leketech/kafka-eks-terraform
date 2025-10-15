@@ -20,7 +20,7 @@ spec:
         - containerPort: 9308
           name: metrics
         args:
-        - --kafka.server=kafka:9092
+        - --kafka.server=kafka-kafka-bootstrap:9092
         resources:
           requests:
             memory: "128Mi"
