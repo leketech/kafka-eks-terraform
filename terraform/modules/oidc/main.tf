@@ -154,7 +154,8 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
           "iam:DeleteInstanceProfile",
           "iam:GetInstanceProfile",
           "iam:AddRoleToInstanceProfile",
-          "iam:RemoveRoleFromInstanceProfile"
+          "iam:RemoveRoleFromInstanceProfile",
+          "iam:ListOpenIDConnectProviders"  // Added missing permission
         ],
         Resource = "*"
       },
@@ -194,7 +195,7 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
         ],
         Resource = "arn:aws:dynamodb:*:*:table/${var.dynamodb_table}"
       },
-      # CloudWatch Logs
+      # CloudWatch Logs - Adding missing ListTagsForResource permission
       {
         Effect = "Allow",
         Action = [
@@ -203,7 +204,8 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
           "logs:DescribeLogGroups",
           "logs:PutRetentionPolicy",
           "logs:CreateLogStream",
-          "logs:PutLogEvents"
+          "logs:PutLogEvents",
+          "logs:ListTagsForResource"  // Added missing permission
         ],
         Resource = "*"
       },
@@ -212,7 +214,8 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
         Effect = "Allow",
         Action = [
           "logs:CreateLogGroup",
-          "logs:TagResource"
+          "logs:TagResource",
+          "logs:ListTagsForResource"  // Added missing permission
         ],
         Resource = "arn:aws:logs:*:*:log-group:/aws/eks/*"
       },
@@ -224,14 +227,15 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
         ],
         Resource = "*"
       },
-      # KMS (for encryption)
+      # KMS (for encryption) - Adding missing GetKeyPolicy permission
       {
         Effect = "Allow",
         Action = [
           "kms:Decrypt",
           "kms:Encrypt",
           "kms:DescribeKey",
-          "kms:CreateGrant"
+          "kms:CreateGrant",
+          "kms:GetKeyPolicy"  // Added missing permission
         ],
         Resource = "*"
       },
@@ -242,7 +246,8 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
           "kms:CreateKey",
           "kms:ScheduleKeyDeletion",
           "kms:TagResource",
-          "kms:DescribeKey"
+          "kms:DescribeKey",
+          "kms:GetKeyPolicy"  // Added missing permission
         ],
         Resource = "*"
       },

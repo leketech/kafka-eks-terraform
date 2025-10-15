@@ -66,8 +66,9 @@ terraform_state_bucket = "my-terraform-state-kafka-eks-12345"
 dynamodb_table         = "terraform-locks"
 
 # GitHub Repository for OIDC
-github_repo    = "your-username/your-repo"
-aws_account_id = "123456789012"
+github_repo    = "leketech/kafka-eks-terraform"
+aws_account_id = "907849381252"
+
 ```
 
 ## Deployment Process
