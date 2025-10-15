@@ -57,6 +57,7 @@ resource "random_string" "suffix" {
 }
 
 # Attach permissions required by Terraform to deploy EKS + networking + state backend
+# Updated to use the correct bucket name
 resource "aws_iam_role_policy" "github_actions_permissions" {
   name = "terraform-kafka-permissions"
   role = aws_iam_role.github_actions.name
