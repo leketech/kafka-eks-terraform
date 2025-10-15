@@ -12,6 +12,7 @@ variable "github_repo" {
 variable "aws_account_id" {
   description = "AWS Account ID for IAM role configuration"
   type        = string
+  default     = "907849381252"
 }
 
 variable "terraform_state_bucket" {
