@@ -107,19 +107,31 @@ jobs:
             exit 1
           fi
 
-      - name: Check Storage Classes
+      - name: Check and Set Default Storage Class
         run: |
           echo "Available Storage Classes:"
           kubectl get storageclass
-          echo "Default Storage Class:"
-          kubectl get storageclass | grep "(default)"
+          
+          # Check if there's already a default storage class
+          default_sc=$(kubectl get storageclass | grep "(default)" | awk '{print $1}')
+          if [ -n "$default_sc" ]; then
+            echo "Default storage class already exists: $default_sc"
+            if [ "$default_sc" != "gp2" ]; then
+              echo "Removing default annotation from $default_sc"
+              kubectl patch storageclass $default_sc -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
+            fi
+          fi
+          
+          # Set gp2 as the default storage class
+          echo "Setting gp2 as default storage class"
+          kubectl patch storageclass gp2 -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 
       - name: Apply Kubernetes manifests
         run: |
           # Create namespace
           kubectl apply -f kubernetes/namespaces/
           
-          # Apply storage class
+          # Apply storage class (this will now be the default)
           kubectl apply -f kubernetes/storage/
           
           # Wait for storage class to be available

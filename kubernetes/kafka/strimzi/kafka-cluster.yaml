@@ -30,14 +30,14 @@ spec:
         type: persistent-claim
         size: 10Gi
         deleteClaim: false
-        class: kafka-storage  # Changed from gp2 to kafka-storage
+        class: gp2  # Changed back to gp2 as it's the standard AWS EBS storage class
   zookeeper:
     replicas: 3
     storage:
       type: persistent-claim
       size: 10Gi
       deleteClaim: false
-      class: kafka-storage  # Changed from gp2 to kafka-storage
+      class: gp2  # Changed back to gp2 as it's the standard AWS EBS storage class
   entityOperator:
     topicOperator: {}
     userOperator: {}
