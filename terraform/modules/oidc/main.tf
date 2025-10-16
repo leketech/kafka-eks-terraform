@@ -123,7 +123,7 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
         ],
         Resource = "*"
       },
-      # IAM permissions (for creating roles, policies, IRSA, etc.)
+      # IAM permissions - Adding missing GetOpenIDConnectProvider permission
       {
         Effect = "Allow",
         Action = [
@@ -155,7 +155,8 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
           "iam:GetInstanceProfile",
           "iam:AddRoleToInstanceProfile",
           "iam:RemoveRoleFromInstanceProfile",
-          "iam:ListOpenIDConnectProviders"  // Added missing permission
+          "iam:ListOpenIDConnectProviders",
+          "iam:GetOpenIDConnectProvider"  // Added missing permission
         ],
         Resource = "*"
       },
@@ -227,7 +228,7 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
         ],
         Resource = "*"
       },
-      # KMS (for encryption) - Adding missing GetKeyPolicy permission
+      // KMS (for encryption) - Adding missing GetKeyRotationStatus permission
       {
         Effect = "Allow",
         Action = [
@@ -235,11 +236,18 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
           "kms:Encrypt",
           "kms:DescribeKey",
           "kms:CreateGrant",
-          "kms:GetKeyPolicy"  // Added missing permission
+          "kms:GetKeyPolicy",
+          "kms:GetKeyRotationStatus",  // Added missing permission
+          "kms:ListResourceTags",      // Added missing permission to fix the error
+          "kms:ListKeys",              // Added for comprehensive KMS access
+          "kms:ListAliases",           // Added for comprehensive KMS access
+          "kms:ReEncrypt*",            // Added for key re-encryption operations
+          "kms:Get*",                  // Added for comprehensive KMS read access
+          "kms:List*"                  // Added for comprehensive KMS list access
         ],
         Resource = "*"
       },
-      # Additional KMS permissions required by EKS module (for tagging keys)
+      // Additional KMS permissions required by EKS module (for tagging keys)
       {
         Effect = "Allow",
         Action = [
@@ -247,7 +255,14 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
           "kms:ScheduleKeyDeletion",
           "kms:TagResource",
           "kms:DescribeKey",
-          "kms:GetKeyPolicy"  // Added missing permission
+          "kms:GetKeyPolicy",
+          "kms:GetKeyRotationStatus",  // Added missing permission
+          "kms:ListResourceTags",      // Added missing permission to fix the error
+          "kms:ListKeys",              // Added for comprehensive KMS access
+          "kms:ListAliases",           // Added for comprehensive KMS access
+          "kms:ReEncrypt*",            // Added for key re-encryption operations
+          "kms:Get*",                  // Added for comprehensive KMS read access
+          "kms:List*"                  // Added for comprehensive KMS list access
         ],
         Resource = "*"
       },
