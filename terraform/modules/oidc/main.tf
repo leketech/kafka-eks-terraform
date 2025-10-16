@@ -25,7 +25,7 @@ data "aws_iam_openid_connect_provider" "github" {
 
 # Create IAM role for GitHub Actions with a unique name
 resource "aws_iam_role" "github_actions" {
-  name = "GitHubActionsKafkaDeployRole-${random_string.suffix.result}"
+  name = "GitHubActionsKafkaDeployRole"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -47,13 +47,6 @@ resource "aws_iam_role" "github_actions" {
       }
     ]
   })
-}
-
-# Generate a random suffix for unique resource names
-resource "random_string" "suffix" {
-  length  = 8
-  special = false
-  upper   = false
 }
 
 # Attach permissions required by Terraform to deploy EKS + networking + state backend
