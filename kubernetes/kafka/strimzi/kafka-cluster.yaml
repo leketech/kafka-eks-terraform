@@ -30,14 +30,14 @@ spec:
         type: persistent-claim
         size: 10Gi
         deleteClaim: false
-        class: gp2
+        class: kafka-storage  # Changed from gp2 to kafka-storage
   zookeeper:
     replicas: 3
     storage:
       type: persistent-claim
       size: 10Gi
       deleteClaim: false
-      class: gp2
+      class: kafka-storage  # Changed from gp2 to kafka-storage
   entityOperator:
     topicOperator: {}
     userOperator: {}

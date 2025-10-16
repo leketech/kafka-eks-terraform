@@ -107,6 +107,13 @@ jobs:
             exit 1
           fi
 
+      - name: Check Storage Classes
+        run: |
+          echo "Available Storage Classes:"
+          kubectl get storageclass
+          echo "Default Storage Class:"
+          kubectl get storageclass | grep "(default)"
+
       - name: Apply Kubernetes manifests
         run: |
           # Create namespace
@@ -115,11 +122,21 @@ jobs:
           # Apply storage class
           kubectl apply -f kubernetes/storage/
           
+          # Wait for storage class to be available
+          sleep 10
+          
           # Apply Strimzi Kafka cluster
           kubectl apply -f kubernetes/kafka/strimzi/
           
           # Apply monitoring
           kubectl apply -f kubernetes/monitoring/
+
+      - name: Debug - Check PVC Status
+        run: |
+          echo "Checking for PersistentVolumeClaims..."
+          sleep 30  # Give time for PVCs to be created
+          kubectl get pvc -n kafka || echo "No PVCs found yet"
+          kubectl get pods -n kafka
 
       - name: Wait for Kafka cluster to be ready
         run: |
@@ -136,6 +153,9 @@ jobs:
               fi
             fi
             echo "⏳ Waiting for Kafka cluster to be ready... ($elapsed/$timeout seconds elapsed)"
+            # Add more detailed debugging
+            kubectl get pods -n kafka
+            kubectl get pvc -n kafka || echo "No PVCs found"
             sleep $interval
             elapsed=$((elapsed + interval))
           done
@@ -144,5 +164,8 @@ jobs:
             echo "⚠️ Timeout waiting for Kafka cluster to be ready"
             kubectl get kafka kafka -n kafka -o yaml
             kubectl get pods -n kafka
+            kubectl get pvc -n kafka || echo "No PVCs found"
+            # Describe pods for more details
+            kubectl describe pods -n kafka
             exit 1
           fi
