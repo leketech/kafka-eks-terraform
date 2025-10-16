@@ -1,27 +1,11 @@
-# Import existing OIDC provider or create new one if it doesn't exist
+# Import existing OIDC provider
 data "aws_iam_openid_connect_provider" "existing_github" {
   url = "https://token.actions.githubusercontent.com"
 }
 
-resource "aws_iam_openid_connect_provider" "github" {
-  count = length(data.aws_iam_openid_connect_provider.existing_github.id) > 0 ? 0 : 1
-
-  url = "https://token.actions.githubusercontent.com"
-
-  client_id_list = [
-    "sts.amazonaws.com"
-  ]
-
-  # Updated thumbprint list with the latest known thumbprints
-  thumbprint_list = [
-    "6938fd4d98bab03faadb97b34396831e3780aea1",
-    "1c58a3a8518e8759bf075b76b750d4f2df264fcd"
-  ]
-}
-
-# Create IAM role for GitHub Actions with a unique name
+# Create IAM role for GitHub Actions with a new name to avoid conflicts
 resource "aws_iam_role" "github_actions" {
-  name = "GitHubActionsKafkaDeployRole-u2zpykfa"
+  name = "GitHubActionsKafkaDeployRoleNew"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -29,17 +13,9 @@ resource "aws_iam_role" "github_actions" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = coalesce(
-            data.aws_iam_openid_connect_provider.existing_github.arn,
-            try(aws_iam_openid_connect_provider.github[0].arn, "")
-          )
+          Federated = data.aws_iam_openid_connect_provider.existing_github.arn
         }
         Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = {
-          StringEquals = {
-            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          }
-        }
       }
     ]
   })

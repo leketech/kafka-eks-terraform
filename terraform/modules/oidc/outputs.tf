@@ -10,10 +10,7 @@ output "github_actions_role_name" {
 
 output "github_oidc_provider_arn" {
   description = "ARN of the GitHub OIDC provider"
-  value       = coalesce(
-    data.aws_iam_openid_connect_provider.existing_github.arn,
-    aws_iam_openid_connect_provider.github[0].arn
-  )
+  value       = data.aws_iam_openid_connect_provider.existing_github.arn
 }
 
 output "aws_account_id" {

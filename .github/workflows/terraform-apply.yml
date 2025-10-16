@@ -40,7 +40,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GitHubActionsKafkaDeployRole-u2zpykfa
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GitHubActionsKafkaDeployRoleNew
           role-session-name: github-actions-${{ github.sha }}
 
       - name: Debug - Verify AWS Credentials
