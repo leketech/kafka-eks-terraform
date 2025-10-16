@@ -37,7 +37,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::907849381252:role/GitHubActionsKafkaDeployRoleNew
+          role-to-assume: arn:aws:iam::907849381252:role/GitHubActionsKafkaDeployRole
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-actions-${{ github.sha }}
 

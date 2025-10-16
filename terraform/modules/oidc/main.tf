@@ -3,9 +3,9 @@ data "aws_iam_openid_connect_provider" "existing_github" {
   url = "https://token.actions.githubusercontent.com"
 }
 
-# Create IAM role for GitHub Actions with a new name to avoid conflicts
+# Create IAM role for GitHub Actions with the original name
 resource "aws_iam_role" "github_actions" {
-  name = "GitHubActionsKafkaDeployRoleNew"
+  name = "GitHubActionsKafkaDeployRole"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -16,6 +16,14 @@ resource "aws_iam_role" "github_actions" {
           Federated = data.aws_iam_openid_connect_provider.existing_github.arn
         }
         Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:*"
+          }
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          }
+        }
       }
     ]
   })
