@@ -17,6 +17,8 @@ Triggering workflow to verify all fixes:
 - KMS UpdateKeyDescription permission added
 - KMS CreateAlias permission added
 - IAM CreateOpenIDConnectProvider permission added
+- IAM TagOpenIDConnectProvider permission added
+- EC2 ModifyLaunchTemplate permission added
 - CloudWatch Log Group conflicts resolved
 - State lock issue resolved
 - EKS cluster name changed in all workflows to avoid conflict
