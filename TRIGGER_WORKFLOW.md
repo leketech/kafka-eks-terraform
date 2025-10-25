@@ -22,4 +22,5 @@ Triggering workflow to verify all fixes:
 - CloudWatch Log Group conflicts resolved
 - State lock issue resolved
 - EKS cluster name changed in all workflows to avoid conflict
+- Failed node group deleted
 - All workflows should now pass
