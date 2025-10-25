@@ -221,7 +221,8 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
           "kms:Get*",                  // Added for comprehensive KMS read access
           "kms:List*",                 // Added for comprehensive KMS list access
           "kms:PutKeyPolicy",          // Added missing permission to fix the error
-          "kms:DeleteAlias"            // Added to fix the current error
+          "kms:DeleteAlias",           // Added to fix the previous error
+          "kms:UpdateKeyDescription"   // Added to fix the current error
         ],
         Resource = "*"
       },
@@ -242,7 +243,8 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
           "kms:Get*",                  // Added for comprehensive KMS read access
           "kms:List*",                 // Added for comprehensive KMS list access
           "kms:PutKeyPolicy",          // Added missing permission to fix the error
-          "kms:DeleteAlias"            // Added to fix the current error
+          "kms:DeleteAlias",           // Added to fix the previous error
+          "kms:UpdateKeyDescription"   // Added to fix the current error
         ],
         Resource = "*"
       },
