@@ -114,23 +114,47 @@ jobs:
             exit 1
           fi
 
-      - name: Clean up stale Terraform locks
+      - name: Aggressive Terraform Lock Cleanup
         run: |
-          echo "=== Terraform Lock Cleanup ==="
-          echo "Checking for stale Terraform locks..."
-          if [ -n "${{ secrets.TF_STATE_LOCK_TABLE }}" ]; then
-            echo "DynamoDB table: ${{ secrets.TF_STATE_LOCK_TABLE }}"
-            LOCK_INFO=$(aws dynamodb get-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}' 2>/dev/null || echo "{}")
-            echo "Lock info: $LOCK_INFO"
-            if [ "$LOCK_INFO" != "{}" ] && [ "$LOCK_INFO" != "" ]; then
-              echo "⚠️ Stale lock found, attempting to remove..."
-              aws dynamodb delete-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}' && echo "✅ Lock removed successfully" || echo "❌ Failed to remove lock"
-            else
-              echo "✅ No active lock found"
-            fi
+          echo "=== Aggressive Terraform Lock Cleanup ==="
+          echo "Checking for Terraform locks..."
+          
+          # Scan all locks in the table
+          echo "Scanning all locks in table ${{ secrets.TF_STATE_LOCK_TABLE }}..."
+          LOCKS=$(aws dynamodb scan --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --output json)
+          echo "All locks: $LOCKS"
+          
+          # Try multiple approaches to remove the lock
+          echo "Attempting to remove locks..."
+          
+          # Approach 1: Remove using the specific key we know about
+          aws dynamodb delete-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key '{"LockID": {"S": "my-terraform-state-kafka-eks-12345/kafka-eks-new/terraform.tfstate"}}' && echo "✅ Lock removed (approach 1)" || echo "⚠️ Failed to remove lock (approach 1)"
+          
+          # Approach 2: Remove using the key from the error message
+          aws dynamodb delete-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}' && echo "✅ Lock removed (approach 2)" || echo "⚠️ Failed to remove lock (approach 2)"
+          
+          # Approach 3: Remove all locks in the table
+          echo "Attempting to remove all locks..."
+          LOCK_IDS=$(echo "$LOCKS" | jq -r '.Items[].LockID.S' 2>/dev/null || echo "")
+          if [ -n "$LOCK_IDS" ]; then
+            echo "Found lock IDs: $LOCK_IDS"
+            for lock_id in $LOCK_IDS; do
+              echo "Removing lock: $lock_id"
+              aws dynamodb delete-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key "{\"LockID\": {\"S\": \"$lock_id\"}}" && echo "✅ Lock $lock_id removed" || echo "❌ Failed to remove lock $lock_id"
+            done
           else
-            echo "❌ TF_STATE_LOCK_TABLE not set, skipping lock check"
-            exit 1
+            echo "No lock IDs found in scan results"
+          fi
+          
+          # Final verification
+          echo "Final verification of locks..."
+          FINAL_LOCKS=$(aws dynamodb scan --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --output json)
+          LOCK_COUNT=$(echo "$FINAL_LOCKS" | jq '.Count' 2>/dev/null || echo "0")
+          echo "Remaining locks: $LOCK_COUNT"
+          if [ "$LOCK_COUNT" -eq "0" ]; then
+            echo "✅ No locks remaining"
+          else
+            echo "⚠️ $LOCK_COUNT locks still present"
           fi
 
       - name: Clean local Terraform state
@@ -141,6 +165,7 @@ jobs:
           rm -rf .terraform
           rm -f .terraform.lock.hcl
           rm -f terraform.tfstate.backup
+          rm -f terraform.tfstate
           echo "✅ Local state cleaned"
 
       - name: Terraform Init

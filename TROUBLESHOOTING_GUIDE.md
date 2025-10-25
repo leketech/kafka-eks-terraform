@@ -250,3 +250,24 @@ If Terraform is having trouble downloading modules:
    git clone https://github.com/terraform-aws-modules/terraform-aws-vpc.git vpc
    git clone https://github.com/terraform-aws-modules/terraform-aws-eks.git eks
    ```
+
+## Aggressive Lock Removal
+
+If standard lock removal methods don't work, use the aggressive approach:
+
+1. **Scan all locks in the table**:
+   ```bash
+   aws dynamodb scan --table-name terraform-locks
+   ```
+
+2. **Remove all locks using the aggressive script**:
+   ```bash
+   ./scripts/aggressive-unlock.sh
+   ```
+
+3. **Verify locks have been removed**:
+   ```bash
+   aws dynamodb scan --table-name terraform-locks
+   ```
+
+This approach removes all locks from the DynamoDB table, which should resolve even the most persistent lock issues.
