@@ -19,4 +19,5 @@ Triggering workflow to verify all fixes:
 - IAM CreateOpenIDConnectProvider permission added
 - CloudWatch Log Group conflicts resolved
 - State lock issue resolved
+- EKS cluster name changed to avoid conflict
 - All workflows should now pass
