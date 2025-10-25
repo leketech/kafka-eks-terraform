@@ -46,7 +46,7 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
         ],
         Resource = "*"
       },
-      # EC2 permissions (VPC, subnets, security groups, instances, etc.)
+      # EC2 permissions - Adding missing ModifyLaunchTemplate permission
       {
         Effect = "Allow",
         Action = [
@@ -84,7 +84,8 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
           "ec2:CreateLaunchTemplateVersion",
           "ec2:DeleteLaunchTemplateVersions",
           "ec2:RunInstances",
-          "ec2:TerminateInstances"
+          "ec2:TerminateInstances",
+          "ec2:ModifyLaunchTemplate"           // Added to fix the new error
         ],
         Resource = "*"
       },
@@ -130,7 +131,8 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
           "iam:RemoveRoleFromInstanceProfile",
           "iam:ListOpenIDConnectProviders",
           "iam:GetOpenIDConnectProvider",      // Added missing permission
-          "iam:CreateOpenIDConnectProvider"    // Added to fix the new error
+          "iam:CreateOpenIDConnectProvider",   // Added to fix the new error
+          "iam:TagOpenIDConnectProvider"       // Added to fix the new error
         ],
         Resource = "*"
       },
