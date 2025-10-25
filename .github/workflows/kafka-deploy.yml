@@ -1,3 +1,4 @@
+---
 name: Deploy Kafka
 
 on:
@@ -11,6 +12,7 @@ env:
   TF_VERSION: "1.9.0"
   AWS_REGION: "us-east-1"
   CLUSTER_NAME: "kafka-eks-new-1"
+  AWS_ACCOUNT_ID: "907849381252"
 
 jobs:
   deploy:
@@ -69,7 +71,7 @@ jobs:
           timeout=600
           interval=30
           elapsed=0
-          
+
           while [ $elapsed -lt $timeout ]; do
             if kubectl cluster-info >/dev/null 2>&1; then
               echo "✅ Kubernetes cluster is ready"
@@ -80,7 +82,7 @@ jobs:
             sleep $interval
             elapsed=$((elapsed + interval))
           done
-          
+
           if [ $elapsed -ge $timeout ]; then
             echo "⚠️ Timeout waiting for Kubernetes cluster to be ready"
             exit 1
@@ -97,7 +99,7 @@ jobs:
           timeout=300
           interval=30
           elapsed=0
-          
+
           while [ $elapsed -lt $timeout ]; do
             if kubectl get deployment strimzi-cluster-operator -n kafka >/dev/null 2>&1; then
               if kubectl rollout status deployment strimzi-cluster-operator -n kafka --timeout=10s >/dev/null 2>&1; then
@@ -110,7 +112,7 @@ jobs:
             sleep $interval
             elapsed=$((elapsed + interval))
           done
-          
+
           if [ $elapsed -ge $timeout ]; then
             echo "⚠️ Timeout waiting for Strimzi operator to be ready"
             kubectl get pods -n kafka
@@ -121,7 +123,7 @@ jobs:
         run: |
           echo "Available Storage Classes:"
           kubectl get storageclass
-          
+
           # Check if there's already a default storage class
           default_sc=$(kubectl get storageclass | grep "(default)" | awk '{print $1}')
           if [ -n "$default_sc" ]; then
@@ -131,7 +133,7 @@ jobs:
               kubectl patch storageclass $default_sc -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
             fi
           fi
-          
+
           # Set gp2 as the default storage class
           echo "Setting gp2 as default storage class"
           kubectl patch storageclass gp2 -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
@@ -140,16 +142,16 @@ jobs:
         run: |
           # Create namespace
           kubectl apply -f kubernetes/namespaces/
-          
+
           # Apply storage class (this will now be the default)
           kubectl apply -f kubernetes/storage/
-          
+
           # Wait for storage class to be available
           sleep 10
-          
+
           # Apply Strimzi Kafka cluster
           kubectl apply -f kubernetes/kafka/strimzi/
-          
+
           # Apply monitoring
           kubectl apply -f kubernetes/monitoring/
 
@@ -165,7 +167,7 @@ jobs:
           timeout=900
           interval=30
           elapsed=0
-          
+
           while [ $elapsed -lt $timeout ]; do
             if kubectl get kafka kafka -n kafka >/dev/null 2>&1; then
               if kubectl get kafka kafka -n kafka -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' | grep -q "True"; then
@@ -181,7 +183,7 @@ jobs:
             sleep $interval
             elapsed=$((elapsed + interval))
           done
-          
+
           if [ $elapsed -ge $timeout ]; then
             echo "⚠️ Timeout waiting for Kafka cluster to be ready"
             kubectl get kafka kafka -n kafka -o yaml

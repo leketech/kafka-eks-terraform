@@ -1,13 +1,14 @@
+---
 name: Terraform Plan
 
 on:
   pull_request:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
     paths:
       - 'terraform/**'
       - '.github/workflows/terraform-plan.yml'
   push:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
     paths:
       - 'terraform/**'
       - '.github/workflows/terraform-plan.yml'
@@ -44,14 +45,14 @@ jobs:
           echo "DynamoDB Table: ${{ secrets.TF_STATE_LOCK_TABLE }}"
           echo "GitHub Repository: ${{ env.GITHUB_REPO }}"
           echo "AWS Account ID: ${{ env.AWS_ACCOUNT_ID }}"
-          
+
           # Check if secrets are set
           if [ -z "${{ secrets.TF_STATE_BUCKET }}" ]; then
             echo "ERROR: TF_STATE_BUCKET secret is not set!"
           else
             echo "TF_STATE_BUCKET secret is set"
           fi
-          
+
           if [ -z "${{ secrets.TF_STATE_LOCK_TABLE }}" ]; then
             echo "ERROR: TF_STATE_LOCK_TABLE secret is not set!"
           else

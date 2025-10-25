@@ -1,0 +1,15 @@
+---
+extends: default
+
+rules:
+  line-length:
+    max: 120
+    level: warning
+  truthy:
+    allowed-values: ['true', 'false']
+  document-start:
+    present: false
+
+ignore: |
+  .git/
+  node_modules/

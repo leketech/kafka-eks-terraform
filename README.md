@@ -67,6 +67,8 @@ To use the GitHub Actions workflows, you need to set up the following repository
 1. `TF_STATE_BUCKET` - S3 bucket name for Terraform state (should be set to `my-terraform-state-kafka-eks-12345`)
 2. `TF_STATE_LOCK_TABLE` - DynamoDB table name for state locking (should be set to `terraform-locks`)
 
+Make sure these secrets are configured in your GitHub repository settings under "Settings" → "Secrets and variables" → "Actions".
+
 Note: The AWS role ARN has been hardcoded in the workflows for testing purposes. In production, you should use secrets as shown in the previous version.
 
 For testing, the role ARN is currently hardcoded as:
@@ -170,6 +172,11 @@ kubectl port-forward svc/kafka-exporter -n kafka 9308:9308
 Then visit `http://localhost:9308/metrics`
 
 ## Troubleshooting
+
+For detailed troubleshooting guides, please refer to:
+- [TROUBLESHOOTING_GUIDE.md](TROUBLESHOOTING_GUIDE.md) - Comprehensive guide to fixing common issues
+- [QUICK_FIX.md](QUICK_FIX.md) - Quick fix steps for Linux/macOS users
+- [QUICK_FIX_PS.md](QUICK_FIX_PS.md) - Quick fix steps for Windows PowerShell users
 
 ### Common GitHub Actions Issues
 
