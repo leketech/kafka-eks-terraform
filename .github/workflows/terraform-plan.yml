@@ -126,10 +126,19 @@ jobs:
           echo "=== Aggressive Terraform Lock Cleanup ==="
           echo "Checking for Terraform locks..."
           
-          # Scan all locks in the table
-          echo "Scanning all locks in table ${{ secrets.TF_STATE_LOCK_TABLE }}..."
-          LOCKS=$(aws dynamodb scan --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --output json)
-          echo "All locks: $LOCKS"
+          # Check if we have scan permissions
+          echo "Checking DynamoDB scan permissions..."
+          aws dynamodb scan --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --max-items 1 >/dev/null 2>&1
+          if [ $? -eq 0 ]; then
+            echo "✅ DynamoDB scan permission confirmed"
+            # Scan all locks in the table
+            echo "Scanning all locks in table ${{ secrets.TF_STATE_LOCK_TABLE }}..."
+            LOCKS=$(aws dynamodb scan --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --output json)
+            echo "All locks: $LOCKS"
+          else
+            echo "⚠️ No scan permission or table inaccessible, trying alternative approaches..."
+            LOCKS="{}"
+          fi
           
           # Try multiple approaches to remove the lock
           echo "Attempting to remove locks..."
@@ -140,28 +149,45 @@ jobs:
           # Approach 2: Remove using the key from the error message
           aws dynamodb delete-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}' && echo "✅ Lock removed (approach 2)" || echo "⚠️ Failed to remove lock (approach 2)"
           
-          # Approach 3: Remove all locks in the table
-          echo "Attempting to remove all locks..."
-          LOCK_IDS=$(echo "$LOCKS" | jq -r '.Items[].LockID.S' 2>/dev/null || echo "")
-          if [ -n "$LOCK_IDS" ]; then
-            echo "Found lock IDs: $LOCK_IDS"
-            for lock_id in $LOCK_IDS; do
-              echo "Removing lock: $lock_id"
-              aws dynamodb delete-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key "{\"LockID\": {\"S\": \"$lock_id\"}}" && echo "✅ Lock $lock_id removed" || echo "❌ Failed to remove lock $lock_id"
-            done
+          # Approach 3: Remove all locks in the table (only if we have scan permissions)
+          if [ "$LOCKS" != "{}" ]; then
+            echo "Attempting to remove all locks..."
+            LOCK_IDS=$(echo "$LOCKS" | jq -r '.Items[].LockID.S' 2>/dev/null || echo "")
+            if [ -n "$LOCK_IDS" ]; then
+              echo "Found lock IDs: $LOCK_IDS"
+              for lock_id in $LOCK_IDS; do
+                echo "Removing lock: $lock_id"
+                aws dynamodb delete-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key "{\"LockID\": {\"S\": \"$lock_id\"}}" && echo "✅ Lock $lock_id removed" || echo "❌ Failed to remove lock $lock_id"
+              done
+            else
+              echo "No lock IDs found in scan results"
+            fi
           else
-            echo "No lock IDs found in scan results"
+            echo "Skipping bulk lock removal due to permission limitations"
           fi
           
-          # Final verification
+          # Final verification (try both get and scan)
           echo "Final verification of locks..."
-          FINAL_LOCKS=$(aws dynamodb scan --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --output json)
-          LOCK_COUNT=$(echo "$FINAL_LOCKS" | jq '.Count' 2>/dev/null || echo "0")
-          echo "Remaining locks: $LOCK_COUNT"
-          if [ "$LOCK_COUNT" -eq "0" ]; then
-            echo "✅ No locks remaining"
+          FINAL_LOCK_CHECK=$(aws dynamodb get-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key '{"LockID": {"S": "my-terraform-state-kafka-eks-12345/kafka-eks-new/terraform.tfstate"}}' 2>/dev/null || echo "{}")
+          if [ "$FINAL_LOCK_CHECK" = "{}" ]; then
+            echo "✅ Specific lock no longer exists"
           else
-            echo "⚠️ $LOCK_COUNT locks still present"
+            echo "⚠️ Specific lock may still exist"
+          fi
+          
+          # Try scan if we have permissions
+          aws dynamodb scan --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --max-items 1 >/dev/null 2>&1
+          if [ $? -eq 0 ]; then
+            FINAL_LOCKS=$(aws dynamodb scan --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --output json)
+            LOCK_COUNT=$(echo "$FINAL_LOCKS" | jq '.Count' 2>/dev/null || echo "0")
+            echo "Remaining locks: $LOCK_COUNT"
+            if [ "$LOCK_COUNT" -eq "0" ]; then
+              echo "✅ No locks remaining"
+            else
+              echo "⚠️ $LOCK_COUNT locks still present"
+            fi
+          else
+            echo "⚠️ Cannot verify remaining locks due to permission limitations"
           fi
 
       - name: Clean local Terraform state

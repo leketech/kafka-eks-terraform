@@ -271,3 +271,34 @@ If standard lock removal methods don't work, use the aggressive approach:
    ```
 
 This approach removes all locks from the DynamoDB table, which should resolve even the most persistent lock issues.
+
+## IAM Permissions Issues
+
+If you encounter permission errors when trying to scan or remove locks, it's likely that the GitHub Actions role is missing required permissions. The role needs the following DynamoDB permissions:
+
+- `dynamodb:Scan` - To list all locks in the table
+- `dynamodb:GetItem` - To check if a specific lock exists
+- `dynamodb:DeleteItem` - To remove locks
+
+To fix this, update the IAM policy attached to the GitHub Actions role to include these permissions. The updated policy should be:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable",
+        "dynamodb:Scan"
+      ],
+      "Resource": "arn:aws:dynamodb:*:*:table/terraform-locks"
+    }
+  ]
+}
+```
+
+After updating the policy, wait a few minutes for the changes to propagate, then try the lock removal again.

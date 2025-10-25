@@ -171,7 +171,8 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
           "dynamodb:GetItem",
           "dynamodb:PutItem",
           "dynamodb:DeleteItem",
-          "dynamodb:DescribeTable"
+          "dynamodb:DescribeTable",
+          "dynamodb:Scan"  // Added to allow scanning the lock table
         ],
         Resource = "arn:aws:dynamodb:*:*:table/${var.dynamodb_table}"
       },
