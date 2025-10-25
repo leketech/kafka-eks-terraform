@@ -17,7 +17,7 @@ env:
   TF_VERSION: "1.9.0"
   AWS_REGION: "us-east-1"
   AWS_ACCOUNT_ID: "907849381252"
-  CLUSTER_NAME: "kafka-eks-new"
+  CLUSTER_NAME: "kafka-eks-new-1"
   GITHUB_REPO: "leketech/kafka-eks-terraform"
 
 jobs:
