@@ -15,6 +15,8 @@ Testing with enhanced debugging to check secret configuration.
 Triggering workflow to verify all fixes:
 - KMS DeleteAlias permission added
 - KMS UpdateKeyDescription permission added
-- CloudWatch Log Group conflict resolved
+- KMS CreateAlias permission added
+- IAM CreateOpenIDConnectProvider permission added
+- CloudWatch Log Group conflicts resolved
 - State lock issue resolved
 - All workflows should now pass
