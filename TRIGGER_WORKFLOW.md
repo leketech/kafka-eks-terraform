@@ -12,4 +12,7 @@ Applied bucket policy updates to resolve HeadObject permission issues.
 
 Testing with enhanced debugging to check secret configuration.
 
-Triggering workflow to verify secret configuration.
+Triggering workflow to verify all fixes:
+- KMS DeleteAlias permission added
+- CloudWatch Log Group conflict resolved
+- All workflows should now pass
