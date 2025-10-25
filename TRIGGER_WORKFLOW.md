@@ -20,7 +20,6 @@ Triggering workflow to verify all fixes:
 - IAM TagOpenIDConnectProvider permission added
 - EC2 ModifyLaunchTemplate permission added
 - CloudWatch Log Group conflicts resolved
-- State lock issue resolved
-- EKS cluster name changed in all workflows to avoid conflict
+- All state locks removed from DynamoDB
 - Failed node group deleted
 - All workflows should now pass
