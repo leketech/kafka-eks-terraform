@@ -7,3 +7,5 @@ This file is used to trigger the GitHub Actions workflow.
 Updated on: 2025-10-25
 
 Fixed S3 access issues for Terraform state.
+
+Applied bucket policy updates to resolve HeadObject permission issues.
