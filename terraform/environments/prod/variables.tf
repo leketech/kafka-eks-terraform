@@ -15,7 +15,7 @@ variable "aws_region" {
 variable "cluster_name" {
   description = "EKS cluster name"
   type        = string
-  default     = "kafka-eks"
+  default     = "kafka-eks-new-1"  // Changed to avoid conflict
 }
 
 variable "terraform_state_bucket" {
