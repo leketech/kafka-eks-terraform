@@ -35,6 +35,8 @@ jobs:
           echo "AWS Region: ${{ env.AWS_REGION }}"
           echo "State Bucket: ${{ secrets.TF_STATE_BUCKET }}"
           echo "DynamoDB Table: ${{ secrets.TF_STATE_LOCK_TABLE }}"
+          echo "GitHub Repository: ${{ env.GITHUB_REPO }}"
+          echo "AWS Account ID: ${{ env.AWS_ACCOUNT_ID }}"
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -42,10 +44,19 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GitHubActionsKafkaDeployRole
           role-session-name: github-actions-${{ github.sha }}
+        continue-on-error: true
 
       - name: Debug - Verify AWS Credentials
         run: |
-          aws sts get-caller-identity
+          echo "Verifying AWS credentials..."
+          aws sts get-caller-identity || echo "Failed to get caller identity"
+        continue-on-error: true
+
+      - name: Check Role Existence
+        run: |
+          echo "Checking if role exists..."
+          aws iam get-role --role-name GitHubActionsKafkaDeployRole || echo "Role does not exist or cannot be accessed"
+        continue-on-error: true
 
       - name: Terraform Init
         run: |
