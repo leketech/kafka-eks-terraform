@@ -64,8 +64,8 @@ kafka-eks-terraform/
 
 To use the GitHub Actions workflows, you need to set up the following repository secrets:
 
-1. `TF_STATE_BUCKET` - S3 bucket name for Terraform state
-2. `TF_STATE_LOCK_TABLE` - DynamoDB table name for state locking
+1. `TF_STATE_BUCKET` - S3 bucket name for Terraform state (should be set to `my-terraform-state-kafka-eks-12345`)
+2. `TF_STATE_LOCK_TABLE` - DynamoDB table name for state locking (should be set to `terraform-locks`)
 
 Note: The AWS role ARN has been hardcoded in the workflows for testing purposes. In production, you should use secrets as shown in the previous version.
 
