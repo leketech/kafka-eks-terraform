@@ -129,7 +129,8 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
           "iam:AddRoleToInstanceProfile",
           "iam:RemoveRoleFromInstanceProfile",
           "iam:ListOpenIDConnectProviders",
-          "iam:GetOpenIDConnectProvider"  // Added missing permission
+          "iam:GetOpenIDConnectProvider",      // Added missing permission
+          "iam:CreateOpenIDConnectProvider"    // Added to fix the new error
         ],
         Resource = "*"
       },
@@ -172,7 +173,7 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
         ],
         Resource = "arn:aws:dynamodb:*:*:table/${var.dynamodb_table}"
       },
-      # CloudWatch Logs - Adding missing ListTagsForResource permission
+      // CloudWatch Logs - Adding missing ListTagsForResource permission
       {
         Effect = "Allow",
         Action = [
@@ -186,7 +187,7 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
         ],
         Resource = "*"
       },
-      # Additional CloudWatch Logs permissions for tagging (required by EKS module)
+      // Additional CloudWatch Logs permissions for tagging (required by EKS module)
       {
         Effect = "Allow",
         Action = [
@@ -196,7 +197,7 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
         ],
         Resource = "arn:aws:logs:*:*:log-group:/aws/eks/*"
       },
-      # CloudWatch Metrics
+      // CloudWatch Metrics
       {
         Effect = "Allow",
         Action = [
@@ -222,7 +223,8 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
           "kms:List*",                 // Added for comprehensive KMS list access
           "kms:PutKeyPolicy",          // Added missing permission to fix the error
           "kms:DeleteAlias",           // Added to fix the previous error
-          "kms:UpdateKeyDescription"   // Added to fix the current error
+          "kms:UpdateKeyDescription",  // Added to fix the current error
+          "kms:CreateAlias"            // Added to fix the new error
         ],
         Resource = "*"
       },
