@@ -5,6 +5,7 @@
 1. **Node Group Creation Failure**: "Instances failed to join the kubernetes cluster"
 2. **State Lock Issue**: "Error acquiring the state lock"
 3. **Workflow Triggering Problems**: Plan workflow not triggering, deploy workflow not running
+4. **IAM Permission Issues**: Missing permissions for OIDC provider operations
 
 ## Root Causes
 
@@ -22,6 +23,12 @@ GitHub Actions workflows have dependencies:
 - `terraform-plan.yml` triggers on PRs and pushes to main
 - `terraform-apply.yml` triggers on successful plan completion
 - `kafka-deploy.yml` triggers on successful apply completion
+
+### IAM Permission Issues
+Missing IAM permissions can prevent Terraform from managing AWS resources properly, particularly:
+- OIDC provider operations (create, delete, get)
+- DynamoDB operations (scan, get, put, delete)
+- S3 operations (list, get, put, delete)
 
 ## Solutions
 
@@ -74,6 +81,64 @@ terraform init \
 Ensure GitHub repository secrets are properly configured:
 - `TF_STATE_BUCKET`: S3 bucket for Terraform state
 - `TF_STATE_LOCK_TABLE`: DynamoDB table for state locking
+
+### 4. Fix IAM Permission Issues
+
+If you encounter permission errors like:
+```
+User: arn:aws:sts::ACCOUNT_ID:assumed-role/GitHubActionsKafkaDeployRole/SESSION is not authorized to perform: iam:DeleteOpenIDConnectProvider
+```
+
+Update the IAM policy attached to the GitHub Actions role to include the missing permissions. The updated policy should include:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:PassRole",
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+        "iam:PutRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:ListRoles",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:CreatePolicy",
+        "iam:DeletePolicy",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicyVersions",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicyVersion",
+        "iam:TagPolicy",
+        "iam:UntagPolicy",
+        "iam:CreateInstanceProfile",
+        "iam:DeleteInstanceProfile",
+        "iam:GetInstanceProfile",
+        "iam:AddRoleToInstanceProfile",
+        "iam:RemoveRoleFromInstanceProfile",
+        "iam:ListOpenIDConnectProviders",
+        "iam:GetOpenIDConnectProvider",
+        "iam:CreateOpenIDConnectProvider",
+        "iam:DeleteOpenIDConnectProvider",
+        "iam:TagOpenIDConnectProvider"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+After updating the policy, wait a few minutes for the changes to propagate, then try the operation again.
 
 ## Step-by-Step Fix Process
 

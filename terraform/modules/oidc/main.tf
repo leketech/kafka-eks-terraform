@@ -132,6 +132,7 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
           "iam:ListOpenIDConnectProviders",
           "iam:GetOpenIDConnectProvider",      // Added missing permission
           "iam:CreateOpenIDConnectProvider",   // Added to fix the new error
+          "iam:DeleteOpenIDConnectProvider",   // Added to fix the current error
           "iam:TagOpenIDConnectProvider"       // Added to fix the new error
         ],
         Resource = "*"
