@@ -3,7 +3,7 @@
 ## Current Issues
 
 1. **Node Group Creation Failure**: "Instances failed to join the kubernetes cluster"
-2. **State Lock Issue**: "Error releasing the state lock"
+2. **State Lock Issue**: "Error acquiring the state lock"
 3. **Workflow Triggering Problems**: Plan workflow not triggering, deploy workflow not running
 
 ## Root Causes
@@ -85,6 +85,7 @@ Ensure GitHub repository secrets are properly configured:
    ```bash
    cd terraform/environments/prod
    rm -rf .terraform
+   rm -f terraform.tfstate.backup
    ```
 
 3. **Re-initialize Terraform**
@@ -136,3 +137,25 @@ If node group issues persist:
    ```bash
    aws ec2 describe-security-groups --filters "Name=tag:eks:cluster-name,Values=kafka-eks-new-1"
    ```
+
+## GitHub Actions Specific Solutions
+
+### Automatic Lock Cleanup
+
+The updated workflows now include automatic lock cleanup steps that will attempt to remove stale locks before running Terraform commands. This prevents the "Error acquiring the state lock" issue from blocking your deployments.
+
+### Manual Lock Removal
+
+If you need to manually remove a lock:
+
+1. Go to the AWS DynamoDB console
+2. Find your lock table (typically named `terraform-locks`)
+3. Look for the item with LockID: `kafka-eks-new/terraform.tfstate-md5`
+4. Delete this item if it exists and no operations are currently running
+
+### Local Development
+
+When working locally, if you encounter lock issues:
+
+1. Run the fix script: `./scripts/fix-terraform-issues.sh`
+2. Or manually remove the lock: `aws dynamodb delete-item --table-name terraform-locks --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}'`

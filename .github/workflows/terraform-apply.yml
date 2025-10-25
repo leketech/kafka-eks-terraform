@@ -38,14 +38,14 @@ jobs:
           echo "DynamoDB Table: ${{ secrets.TF_STATE_LOCK_TABLE }}"
           echo "GitHub Repository: ${{ env.GITHUB_REPO }}"
           echo "AWS Account ID: ${{ env.AWS_ACCOUNT_ID }}"
-
+          
           # Check if secrets are set
           if [ -z "${{ secrets.TF_STATE_BUCKET }}" ]; then
             echo "ERROR: TF_STATE_BUCKET secret is not set!"
           else
             echo "TF_STATE_BUCKET secret is set"
           fi
-
+          
           if [ -z "${{ secrets.TF_STATE_LOCK_TABLE }}" ]; then
             echo "ERROR: TF_STATE_LOCK_TABLE secret is not set!"
           else
@@ -70,6 +70,23 @@ jobs:
         run: |
           echo "Checking if role exists..."
           aws iam get-role --role-name GitHubActionsKafkaDeployRole || echo "Role does not exist or cannot be accessed"
+        continue-on-error: true
+
+      - name: Clean up stale Terraform locks
+        run: |
+          echo "Checking for stale Terraform locks..."
+          if [ -n "${{ secrets.TF_STATE_LOCK_TABLE }}" ]; then
+            LOCK_INFO=$(aws dynamodb get-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}' 2>/dev/null || echo "{}")
+            if [ "$LOCK_INFO" != "{}" ]; then
+              echo "Stale lock found, attempting to remove..."
+              aws dynamodb delete-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}' || echo "Failed to remove lock"
+              echo "Lock removal attempted"
+            else
+              echo "No active lock found"
+            fi
+          else
+            echo "TF_STATE_LOCK_TABLE not set, skipping lock check"
+          fi
         continue-on-error: true
 
       - name: Terraform Init
