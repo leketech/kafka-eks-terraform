@@ -153,7 +153,8 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
           "s3:GetBucketLocation",
           "s3:HeadBucket",
           "s3:GetBucketVersioning",
-          "s3:ListBucketVersions"
+          "s3:ListBucketVersions",
+          "s3:HeadObject"  // Explicitly allow HeadObject action
         ],
         Resource = [
           "arn:aws:s3:::${var.terraform_state_bucket}",
