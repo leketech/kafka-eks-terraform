@@ -194,3 +194,59 @@ Ensure your GitHub repository has the required secrets:
 - `TF_STATE_LOCK_TABLE`: Should be set to `terraform-locks`
 
 You can verify these in your GitHub repository settings under "Settings" → "Secrets and variables" → "Actions".
+
+## Persistent Lock Issues Resolution
+
+If the lock issue persists even after manual removal, try these additional steps:
+
+1. **Check for multiple lock entries**:
+   ```bash
+   aws dynamodb scan --table-name terraform-locks
+   ```
+
+2. **Delete all lock entries**:
+   ```bash
+   aws dynamodb scan --table-name terraform-locks --query 'Items[].LockID.S' --output text | xargs -I {} aws dynamodb delete-item --table-name terraform-locks --key '{"LockID": {"S": "{}"}}'
+   ```
+
+3. **Verify backend configuration consistency**:
+   - Ensure all workflows use the same backend configuration
+   - Check that the S3 bucket and DynamoDB table names match across all environments
+
+4. **Check for concurrent operations**:
+   - Ensure no other Terraform processes are running
+   - Check if any team members are running Terraform operations simultaneously
+
+5. **Increase DynamoDB table capacity** (if using provisioned throughput):
+   ```bash
+   aws dynamodb update-table --table-name terraform-locks --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+   ```
+
+## Network and Module Download Issues
+
+If Terraform is having trouble downloading modules:
+
+1. **Check network connectivity**:
+   ```bash
+   curl -I https://registry.terraform.io/
+   ```
+
+2. **Clear module cache**:
+   ```bash
+   rm -rf ~/.terraform.d/plugin-cache/
+   ```
+
+3. **Use alternative registry mirrors** (if needed):
+   Add to your Terraform configuration:
+   ```hcl
+   provider_meta "aws" {
+     module_source = "terraform-aws-modules"
+   }
+   ```
+
+4. **Manually download modules**:
+   ```bash
+   cd terraform/modules
+   git clone https://github.com/terraform-aws-modules/terraform-aws-vpc.git vpc
+   git clone https://github.com/terraform-aws-modules/terraform-aws-eks.git eks
+   ```

@@ -40,23 +40,27 @@ jobs:
 
       - name: Debug - Show Environment
         run: |
+          echo "=== Environment Variables ==="
           echo "AWS Region: ${{ env.AWS_REGION }}"
           echo "State Bucket: ${{ secrets.TF_STATE_BUCKET }}"
           echo "DynamoDB Table: ${{ secrets.TF_STATE_LOCK_TABLE }}"
           echo "GitHub Repository: ${{ env.GITHUB_REPO }}"
           echo "AWS Account ID: ${{ env.AWS_ACCOUNT_ID }}"
+          echo "GitHub SHA: ${{ github.sha }}"
           
           # Check if secrets are set
           if [ -z "${{ secrets.TF_STATE_BUCKET }}" ]; then
-            echo "ERROR: TF_STATE_BUCKET secret is not set!"
+            echo "❌ ERROR: TF_STATE_BUCKET secret is not set!"
+            exit 1
           else
-            echo "TF_STATE_BUCKET secret is set"
+            echo "✅ TF_STATE_BUCKET secret is set"
           fi
           
           if [ -z "${{ secrets.TF_STATE_LOCK_TABLE }}" ]; then
-            echo "ERROR: TF_STATE_LOCK_TABLE secret is not set!"
+            echo "❌ ERROR: TF_STATE_LOCK_TABLE secret is not set!"
+            exit 1
           else
-            echo "TF_STATE_LOCK_TABLE secret is set"
+            echo "✅ TF_STATE_LOCK_TABLE secret is set"
           fi
 
       - name: Configure AWS Credentials
@@ -65,51 +69,98 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GitHubActionsKafkaDeployRole
           role-session-name: github-actions-${{ github.sha }}
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Debug - Verify AWS Credentials
         run: |
+          echo "=== AWS Credentials Verification ==="
           echo "Verifying AWS credentials..."
-          aws sts get-caller-identity || echo "Failed to get caller identity"
-        continue-on-error: true
+          aws sts get-caller-identity
+          if [ $? -eq 0 ]; then
+            echo "✅ AWS credentials are valid"
+          else
+            echo "❌ Failed to get caller identity"
+            exit 1
+          fi
 
       - name: Check Role Existence
         run: |
+          echo "=== Role Existence Check ==="
           echo "Checking if role exists..."
-          aws iam get-role --role-name GitHubActionsKafkaDeployRole || echo "Role does not exist or cannot be accessed"
-        continue-on-error: true
+          aws iam get-role --role-name GitHubActionsKafkaDeployRole
+          if [ $? -eq 0 ]; then
+            echo "✅ Role exists"
+          else
+            echo "❌ Role does not exist or cannot be accessed"
+            exit 1
+          fi
+
+      - name: Debug - Backend Resources Verification
+        run: |
+          echo "=== Backend Resources Verification ==="
+          echo "TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}"
+          echo "TF_STATE_LOCK_TABLE: ${{ secrets.TF_STATE_LOCK_TABLE }}"
+          
+          # Test S3 bucket access
+          echo "Testing S3 bucket access..."
+          aws s3 ls "${{ secrets.TF_STATE_BUCKET }}" > /dev/null 2>&1
+          if [ $? -eq 0 ]; then
+            echo "✅ S3 bucket ${{ secrets.TF_STATE_BUCKET }} is accessible"
+          else
+            echo "❌ Cannot access S3 bucket ${{ secrets.TF_STATE_BUCKET }}"
+            exit 1
+          fi
+          
+          # Test DynamoDB table access
+          echo "Testing DynamoDB table access..."
+          aws dynamodb describe-table --table-name "${{ secrets.TF_STATE_LOCK_TABLE }}" > /dev/null 2>&1
+          if [ $? -eq 0 ]; then
+            echo "✅ DynamoDB table ${{ secrets.TF_STATE_LOCK_TABLE }} is accessible"
+          else
+            echo "❌ Cannot access DynamoDB table ${{ secrets.TF_STATE_LOCK_TABLE }}"
+            exit 1
+          fi
 
       - name: Clean up stale Terraform locks
         run: |
+          echo "=== Terraform Lock Cleanup ==="
           echo "Checking for stale Terraform locks..."
           if [ -n "${{ secrets.TF_STATE_LOCK_TABLE }}" ]; then
             echo "DynamoDB table: ${{ secrets.TF_STATE_LOCK_TABLE }}"
             LOCK_INFO=$(aws dynamodb get-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}' 2>/dev/null || echo "{}")
             echo "Lock info: $LOCK_INFO"
             if [ "$LOCK_INFO" != "{}" ] && [ "$LOCK_INFO" != "" ]; then
-              echo "Stale lock found, attempting to remove..."
-              aws dynamodb delete-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}' && echo "Lock removed successfully" || echo "Failed to remove lock"
+              echo "⚠️ Stale lock found, attempting to remove..."
+              aws dynamodb delete-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}' && echo "✅ Lock removed successfully" || echo "❌ Failed to remove lock"
             else
-              echo "No active lock found"
+              echo "✅ No active lock found"
             fi
           else
-            echo "TF_STATE_LOCK_TABLE not set, skipping lock check"
+            echo "❌ TF_STATE_LOCK_TABLE not set, skipping lock check"
+            exit 1
           fi
-        continue-on-error: true
 
       - name: Clean local Terraform state
         run: |
+          echo "=== Local Terraform State Cleanup ==="
           echo "Cleaning local Terraform state..."
           cd terraform/environments/prod
           rm -rf .terraform
           rm -f .terraform.lock.hcl
           rm -f terraform.tfstate.backup
-        continue-on-error: true
+          echo "✅ Local state cleaned"
 
       - name: Terraform Init
         run: |
+          echo "=== Terraform Initialization ==="
           echo "Initializing Terraform..."
           cd terraform/environments/prod
+          echo "Backend config:"
+          echo "  bucket: ${{ secrets.TF_STATE_BUCKET }}"
+          echo "  key: kafka-eks-new/terraform.tfstate"
+          echo "  region: ${{ env.AWS_REGION }}"
+          echo "  dynamodb_table: ${{ secrets.TF_STATE_LOCK_TABLE }}"
+          
           terraform init \
             -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
             -backend-config="key=kafka-eks-new/terraform.tfstate" \
@@ -118,12 +169,14 @@ jobs:
 
       - name: Terraform Validate
         run: |
+          echo "=== Terraform Validation ==="
           echo "Validating Terraform configuration..."
           cd terraform/environments/prod
           terraform validate
 
       - name: Terraform Plan
         run: |
+          echo "=== Terraform Plan ==="
           echo "Creating Terraform plan..."
           cd terraform/environments/prod
           terraform plan \
