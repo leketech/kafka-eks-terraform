@@ -76,11 +76,12 @@ jobs:
         run: |
           echo "Checking for stale Terraform locks..."
           if [ -n "${{ secrets.TF_STATE_LOCK_TABLE }}" ]; then
+            echo "DynamoDB table: ${{ secrets.TF_STATE_LOCK_TABLE }}"
             LOCK_INFO=$(aws dynamodb get-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}' 2>/dev/null || echo "{}")
-            if [ "$LOCK_INFO" != "{}" ]; then
+            echo "Lock info: $LOCK_INFO"
+            if [ "$LOCK_INFO" != "{}" ] && [ "$LOCK_INFO" != "" ]; then
               echo "Stale lock found, attempting to remove..."
-              aws dynamodb delete-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}' || echo "Failed to remove lock"
-              echo "Lock removal attempted"
+              aws dynamodb delete-item --table-name ${{ secrets.TF_STATE_LOCK_TABLE }} --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}' && echo "Lock removed successfully" || echo "Failed to remove lock"
             else
               echo "No active lock found"
             fi
@@ -89,8 +90,18 @@ jobs:
           fi
         continue-on-error: true
 
+      - name: Clean local Terraform state
+        run: |
+          echo "Cleaning local Terraform state..."
+          cd terraform/environments/prod
+          rm -rf .terraform
+          rm -f .terraform.lock.hcl
+          rm -f terraform.tfstate.backup
+        continue-on-error: true
+
       - name: Terraform Init
         run: |
+          echo "Initializing Terraform..."
           cd terraform/environments/prod
           terraform init \
             -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
@@ -100,11 +111,13 @@ jobs:
 
       - name: Terraform Validate
         run: |
+          echo "Validating Terraform configuration..."
           cd terraform/environments/prod
           terraform validate
 
       - name: Terraform Plan
         run: |
+          echo "Creating Terraform plan..."
           cd terraform/environments/prod
           terraform plan -out=tfplan \
             -var="aws_region=${{ env.AWS_REGION }}" \
@@ -116,6 +129,7 @@ jobs:
 
       - name: Terraform Apply
         run: |
+          echo "Applying Terraform plan..."
           cd terraform/environments/prod
           terraform apply -auto-approve tfplan
         timeout-minutes: 45

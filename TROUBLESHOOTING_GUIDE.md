@@ -58,6 +58,7 @@ aws dynamodb delete-item --table-name terraform-locks --key '{"LockID": {"S": "k
 # Clean local state
 cd terraform/environments/prod
 rm -rf .terraform
+rm -f .terraform.lock.hcl
 rm -f terraform.tfstate.backup
 
 # Re-initialize
@@ -85,6 +86,7 @@ Ensure GitHub repository secrets are properly configured:
    ```bash
    cd terraform/environments/prod
    rm -rf .terraform
+   rm -f .terraform.lock.hcl
    rm -f terraform.tfstate.backup
    ```
 
@@ -157,5 +159,38 @@ If you need to manually remove a lock:
 
 When working locally, if you encounter lock issues:
 
-1. Run the fix script: `./scripts/fix-terraform-issues.sh`
+1. Run the fix script: `./scripts/unlock-terraform.sh`
 2. Or manually remove the lock: `aws dynamodb delete-item --table-name terraform-locks --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}'`
+
+## Common Error Patterns and Solutions
+
+### "ConditionalCheckFailedException" Error
+
+This error occurs when Terraform tries to acquire a lock but the lock already exists. The solution is to remove the stale lock:
+
+```bash
+aws dynamodb delete-item --table-name terraform-locks --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}'
+```
+
+### "Required plugins are not installed" Error
+
+This happens when the Terraform providers are corrupted or missing. Clean the local state and re-initialize:
+
+```bash
+cd terraform/environments/prod
+rm -rf .terraform
+rm -f .terraform.lock.hcl
+terraform init \
+  -backend-config="bucket=YOUR_TF_STATE_BUCKET" \
+  -backend-config="key=kafka-eks-new/terraform.tfstate" \
+  -backend-config="region=us-east-1" \
+  -backend-config="dynamodb_table=terraform-locks"
+```
+
+### GitHub Secrets Issues
+
+Ensure your GitHub repository has the required secrets:
+- `TF_STATE_BUCKET`: Should be set to `my-terraform-state-kafka-eks-12345`
+- `TF_STATE_LOCK_TABLE`: Should be set to `terraform-locks`
+
+You can verify these in your GitHub repository settings under "Settings" → "Secrets and variables" → "Actions".
