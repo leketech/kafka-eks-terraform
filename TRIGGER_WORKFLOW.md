@@ -11,3 +11,5 @@ Fixed S3 access issues for Terraform state.
 Applied bucket policy updates to resolve HeadObject permission issues.
 
 Testing with enhanced debugging to check secret configuration.
+
+Triggering workflow to verify secret configuration.
