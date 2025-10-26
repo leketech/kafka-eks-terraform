@@ -34,28 +34,43 @@ jobs:
 
       - name: Debug - Show Environment
         run: |
+          echo "=== Environment Variables ==="
           echo "AWS Region: ${{ env.AWS_REGION }}"
           echo "AWS Account ID: ${{ env.AWS_ACCOUNT_ID }}"
+          echo "Cluster Name: ${{ env.CLUSTER_NAME }}"
+          echo "Workflow Run Conclusion: ${{ github.event.workflow_run.conclusion }}"
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GitHubActionsKafkaDeployRole
           aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GitHubActionsKafkaDeployRole
           role-session-name: github-actions-${{ github.sha }}
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Debug - Verify AWS Credentials
         run: |
+          echo "=== AWS Credentials Verification ==="
           echo "Verifying AWS credentials..."
-          aws sts get-caller-identity || echo "Failed to get caller identity"
-        continue-on-error: true
+          aws sts get-caller-identity
+          if [ $? -eq 0 ]; then
+            echo "✅ AWS credentials are valid"
+          else
+            echo "❌ Failed to get caller identity"
+            exit 1
+          fi
 
       - name: Check Role Existence
         run: |
+          echo "=== Role Existence Check ==="
           echo "Checking if role exists..."
-          aws iam get-role --role-name GitHubActionsKafkaDeployRole || echo "Role does not exist or cannot be accessed"
-        continue-on-error: true
+          aws iam get-role --role-name GitHubActionsKafkaDeployRole
+          if [ $? -eq 0 ]; then
+            echo "✅ Role exists"
+          else
+            echo "❌ Role does not exist or cannot be accessed"
+            exit 1
+          fi
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3

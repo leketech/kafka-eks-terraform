@@ -1,103 +1,104 @@
-# Fixing Terraform Workflow Issues
+# Fix for Terraform Apply Workflow Failure
 
-## Problem Summary
+## Problem
 
-1. **Node Group Creation Failure**: "Instances failed to join the kubernetes cluster"
-2. **State Lock Issue**: "Error releasing the state lock"
-3. **Workflow Triggering Problems**: Plan workflow not triggering, deploy workflow not running
+The Terraform apply workflow is failing with the following error:
 
-## Root Causes and Solutions
-
-### 1. Node Group Creation Failure
-
-**Root Cause**: Missing IAM permissions for EKS node group creation.
-
-**Solution**: The OIDC module already includes the required permissions:
-- `iam:TagOpenIDConnectProvider`
-- `ec2:ModifyLaunchTemplate`
-
-However, the role might not have been properly updated. Run the following to ensure the role has all required permissions:
-
-```bash
-# Re-apply the OIDC module to update the role permissions
-cd terraform/environments/prod
-terraform apply -target=module.oidc
+```
+Error: Error acquiring the state lock
+Error message: operation error DynamoDB: PutItem, https response error
+StatusCode: 400, RequestID: RNKF233JH00TDC4PDNMQ15FNRFVV4KQNSO5AEMVJF66Q9ASUAAJG,
+ConditionalCheckFailedException: The conditional request failed
+Lock Info:
+  ID:        8536632e-b54c-0b6e-1697-1679e7de1025
+  Path:      ***/kafka-eks-new/terraform.tfstate
+  Operation: OperationTypePlan
+  Who:       runner@runnervmwhb2z
+  Version:   1.9.0
+  Created:   2025-10-25 21:03:39.126542529 +0000 UTC
 ```
 
-### 2. State Lock Issue
+This error occurs when Terraform tries to acquire a state lock but finds that a lock already exists in the DynamoDB table.
 
-**Root Cause**: Previous Terraform operation was interrupted, leaving a lock in the DynamoDB table.
+## Root Cause
 
-**Solution**: 
-1. First, check if there's an active lock:
-   ```bash
-   aws dynamodb get-item --table-name terraform-locks --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}'
-   ```
+The issue is caused by a stale lock entry in the DynamoDB table that was not properly cleaned up when a previous Terraform operation was interrupted or failed.
 
-2. If a lock exists and you're certain no other operations are running, remove it:
-   ```bash
-   aws dynamodb delete-item --table-name terraform-locks --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}'
-   ```
+## Solution
 
-3. Clean up local state:
-   ```bash
-   rm -rf .terraform
-   ```
+I've implemented several fixes to resolve this issue:
 
-### 3. Workflow Triggering Problems
+### 1. Enhanced Lock Cleanup in Workflows
 
-**Root Cause**: Apply workflow failures prevent downstream workflows from triggering.
+Updated both [terraform-apply.yml](.github/workflows/terraform-apply.yml) and [terraform-plan.yml](.github/workflows/terraform-plan.yml) workflows with enhanced lock cleanup steps that:
 
-**Solution**:
-1. Fix the node group permissions issue
-2. Clear the state lock
-3. Re-run the workflows in order:
-   - terraform-plan.yml (trigger manually or with a PR)
-   - terraform-apply.yml (will trigger automatically on main branch push after successful plan)
-   - kafka-deploy.yml (will trigger automatically after successful apply)
+- Check for multiple types of lock IDs that could be present
+- Try to remove locks using different approaches:
+  - Direct path from error message: `***/kafka-eks-new/terraform.tfstate`
+  - MD5 version: `kafka-eks-new/terraform.tfstate-md5`
+  - Direct path: `kafka-eks-new/terraform.tfstate`
+- Scan all locks in the table and remove them if permissions allow
+- Verify that locks have been successfully removed
 
-## Step-by-Step Fix Process
+### 2. Improved Unlock Scripts
 
-1. **Clear the state lock**:
-   ```bash
-   # Check for active lock
-   aws dynamodb get-item --table-name terraform-locks --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}'
-   
-   # If lock exists, remove it (only if you're sure no other operations are running)
-   aws dynamodb delete-item --table-name terraform-locks --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}'
-   ```
+Updated the existing unlock scripts with better handling of different lock ID formats:
 
-2. **Clean local state**:
-   ```bash
-   cd terraform/environments/prod
-   rm -rf .terraform
-   ```
+- [scripts/unlock-terraform.sh](scripts/unlock-terraform.sh) - Enhanced to check and remove multiple lock ID formats
+- [scripts/aggressive-unlock.sh](scripts/aggressive-unlock.sh) - Enhanced to handle the specific lock ID from the error
 
-3. **Re-initialize Terraform**:
-   ```bash
-   terraform init \
-     -backend-config="bucket=YOUR_TF_STATE_BUCKET" \
-     -backend-config="key=kafka-eks-new/terraform.tfstate" \
-     -backend-config="region=us-east-1" \
-     -backend-config="dynamodb_table=terraform-locks"
-   ```
+### 3. New Specific Fix Script
 
-4. **Update IAM permissions**:
-   ```bash
-   terraform apply -target=module.oidc
-   ```
+Created a new script [scripts/fix-terraform-apply-lock.sh](scripts/fix-terraform-apply-lock.sh) that specifically targets the lock ID mentioned in the error message.
 
-5. **Run a new plan and apply**:
-   ```bash
-   terraform plan -out=tfplan
-   terraform apply tfplan
-   ```
+### 4. Updated Documentation
 
-## Prevention for Future
+Updated the [TROUBLESHOOTING_GUIDE.md](TROUBLESHOOTING_GUIDE.md) with specific instructions for this issue.
 
-1. Always let workflows complete naturally - avoid cancelling them manually
-2. Ensure GitHub secrets are properly configured:
-   - `TF_STATE_BUCKET`
-   - `TF_STATE_LOCK_TABLE`
-3. Verify IAM role permissions regularly
-4. Monitor CloudWatch logs for troubleshooting node group issues
+## How to Apply the Fix
+
+### Option 1: Run the Specific Fix Script (Recommended)
+
+```bash
+# Set required environment variables
+export TF_STATE_TABLE=terraform-locks
+export TF_STATE_BUCKET=my-terraform-state-kafka-eks-12345
+
+# Run the specific fix script
+./scripts/fix-terraform-apply-lock.sh
+```
+
+### Option 2: Manual Fix
+
+```bash
+# Remove the specific lock causing the issue
+aws dynamodb delete-item --table-name terraform-locks --key '{"LockID": {"S": "***/kafka-eks-new/terraform.tfstate"}}'
+
+# Also remove the MD5 version
+aws dynamodb delete-item --table-name terraform-locks --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}'
+
+# Verify the locks have been removed
+aws dynamodb get-item --table-name terraform-locks --key '{"LockID": {"S": "***/kafka-eks-new/terraform.tfstate"}}'
+aws dynamodb get-item --table-name terraform-locks --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}'
+```
+
+### Option 3: Use the Existing Unlock Scripts
+
+```bash
+# Run the enhanced unlock script
+./scripts/unlock-terraform.sh
+
+# Or run the aggressive unlock script
+./scripts/aggressive-unlock.sh
+```
+
+## Prevention
+
+The updated workflows now include enhanced lock cleanup steps that should automatically handle this issue in the future. The workflows will:
+
+1. Check for existing locks before running Terraform commands
+2. Attempt to remove multiple types of lock IDs
+3. Clean local Terraform state
+4. Verify that locks have been removed
+
+This should prevent the issue from recurring in future runs.

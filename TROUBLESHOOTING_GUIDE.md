@@ -367,3 +367,40 @@ To fix this, update the IAM policy attached to the GitHub Actions role to includ
 ```
 
 After updating the policy, wait a few minutes for the changes to propagate, then try the lock removal again.
+
+## Specific Fix for Terraform Apply Workflow Lock Issue
+
+The Terraform apply workflow is failing with a specific error:
+```
+Error: Error acquiring the state lock
+Error message: operation error DynamoDB: PutItem, https response error
+StatusCode: 400, RequestID: RNKF233JH00TDC4PDNMQ15FNRFVV4KQNSO5AEMVJF66Q9ASUAAJG,
+ConditionalCheckFailedException: The conditional request failed
+```
+
+This error shows that there's a lock with ID `8536632e-b54c-0b6e-1697-1679e7de1025` and path `***/kafka-eks-new/terraform.tfstate` that's preventing the workflow from running.
+
+To fix this specific issue:
+
+1. **Run the specific fix script**:
+   ```bash
+   ./scripts/fix-terraform-apply-lock.sh
+   ```
+
+2. **Or manually remove the specific lock**:
+   ```bash
+   aws dynamodb delete-item --table-name terraform-locks --key '{"LockID": {"S": "***/kafka-eks-new/terraform.tfstate"}}'
+   ```
+
+3. **Also remove the MD5 version of the lock**:
+   ```bash
+   aws dynamodb delete-item --table-name terraform-locks --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}'
+   ```
+
+4. **Verify the locks have been removed**:
+   ```bash
+   aws dynamodb get-item --table-name terraform-locks --key '{"LockID": {"S": "***/kafka-eks-new/terraform.tfstate"}}'
+   aws dynamodb get-item --table-name terraform-locks --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}'
+   ```
+
+The updated GitHub Actions workflows now include enhanced lock cleanup steps that should automatically handle this issue in the future.

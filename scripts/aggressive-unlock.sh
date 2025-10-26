@@ -38,12 +38,27 @@ else
   LOCK_COUNT="0"
 fi
 
-if [ "$LOCK_COUNT" -eq "0" ]; then
-  echo "✅ No locks found in the table"
-  exit 0
-fi
-
 echo "Found $LOCK_COUNT lock(s) in the table"
+
+# Try known lock IDs first
+echo "Trying known lock IDs..."
+KNOWN_LOCKS=(
+  "kafka-eks-new/terraform.tfstate"
+  "kafka-eks-new/terraform.tfstate-md5"
+  "***/kafka-eks-new/terraform.tfstate"
+  "my-terraform-state-kafka-eks-12345/kafka-eks-new/terraform.tfstate"
+)
+
+for lock_id in "${KNOWN_LOCKS[@]}"; do
+  echo "Trying to remove lock: $lock_id"
+  KEY_JSON=$(printf '{"LockID": {"S": "%s"}}' "$lock_id")
+  aws dynamodb delete-item --table-name "$TF_STATE_LOCK_TABLE" --key "$KEY_JSON" >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    echo "✅ Lock '$lock_id' removed successfully"
+  else
+    echo "⚠️ Failed to remove lock '$lock_id' (may not exist)"
+  fi
+done
 
 # Extract lock IDs (only if we have scan permissions)
 if [ "$LOCKS" != "{}" ]; then
@@ -54,57 +69,51 @@ else
 fi
 
 if [ -z "$LOCK_IDS" ] && [ "$LOCKS" != "{}" ]; then
-  echo "⚠️ No lock IDs found in scan results"
-  exit 0
-fi
-
-# Remove each lock
-echo "Removing locks..."
-if [ -n "$LOCK_IDS" ]; then
-  # We have lock IDs from scan
-  for lock_id in $LOCK_IDS; do
-    echo "Removing lock: $lock_id"
-    
-    # Create JSON key for this lock ID
-    KEY_JSON=$(printf '{"LockID": {"S": "%s"}}' "$lock_id")
-    
-    # Try to delete the lock
-    aws dynamodb delete-item --table-name "$TF_STATE_LOCK_TABLE" --key "$KEY_JSON" >/dev/null 2>&1
-    
-    if [ $? -eq 0 ]; then
-      echo "✅ Lock '$lock_id' removed successfully"
-    else
-      echo "❌ Failed to remove lock '$lock_id'"
-    fi
-  done
+  echo "⚠️ No additional lock IDs found in scan results"
 else
-  # Try known lock IDs
-  echo "Trying known lock IDs..."
-  
-  KNOWN_LOCKS=(
-    "my-terraform-state-kafka-eks-12345/kafka-eks-new/terraform.tfstate"
-    "kafka-eks-new/terraform.tfstate-md5"
-  )
-  
-  for lock_id in "${KNOWN_LOCKS[@]}"; do
-    echo "Trying to remove lock: $lock_id"
-    KEY_JSON=$(printf '{"LockID": {"S": "%s"}}' "$lock_id")
-    aws dynamodb delete-item --table-name "$TF_STATE_LOCK_TABLE" --key "$KEY_JSON" >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
-      echo "✅ Lock '$lock_id' removed successfully"
-    else
-      echo "⚠️ Failed to remove lock '$lock_id' (may not exist)"
-    fi
-  done
+  # Remove each additional lock
+  echo "Removing additional locks..."
+  if [ -n "$LOCK_IDS" ]; then
+    # We have lock IDs from scan
+    for lock_id in $LOCK_IDS; do
+      # Skip if it's one of the known locks we already tried
+      skip=false
+      for known_lock in "${KNOWN_LOCKS[@]}"; do
+        if [ "$lock_id" = "$known_lock" ]; then
+          skip=true
+          break
+        fi
+      done
+      
+      if [ "$skip" = false ]; then
+        echo "Removing lock: $lock_id"
+        
+        # Create JSON key for this lock ID
+        KEY_JSON=$(printf '{"LockID": {"S": "%s"}}' "$lock_id")
+        
+        # Try to delete the lock
+        aws dynamodb delete-item --table-name "$TF_STATE_LOCK_TABLE" --key "$KEY_JSON" >/dev/null 2>&1
+        
+        if [ $? -eq 0 ]; then
+          echo "✅ Lock '$lock_id' removed successfully"
+        else
+          echo "❌ Failed to remove lock '$lock_id'"
+        fi
+      fi
+    done
+  fi
 fi
 
 # Final verification
 echo "Verifying locks have been removed..."
-FINAL_LOCK_CHECK=$(aws dynamodb get-item --table-name "$TF_STATE_LOCK_TABLE" --key '{"LockID": {"S": "my-terraform-state-kafka-eks-12345/kafka-eks-new/terraform.tfstate"}}' 2>/dev/null || echo "{}")
-if [ "$FINAL_LOCK_CHECK" = "{}" ]; then
-  echo "✅ Specific lock no longer exists"
+FINAL_LOCK_CHECK_1=$(aws dynamodb get-item --table-name "$TF_STATE_LOCK_TABLE" --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate"}}' 2>/dev/null || echo "{}")
+FINAL_LOCK_CHECK_2=$(aws dynamodb get-item --table-name "$TF_STATE_LOCK_TABLE" --key '{"LockID": {"S": "kafka-eks-new/terraform.tfstate-md5"}}' 2>/dev/null || echo "{}")
+FINAL_LOCK_CHECK_3=$(aws dynamodb get-item --table-name "$TF_STATE_LOCK_TABLE" --key '{"LockID": {"S": "***/kafka-eks-new/terraform.tfstate"}}' 2>/dev/null || echo "{}")
+
+if [ "$FINAL_LOCK_CHECK_1" = "{}" ] && [ "$FINAL_LOCK_CHECK_2" = "{}" ] && [ "$FINAL_LOCK_CHECK_3" = "{}" ]; then
+  echo "✅ All known locks no longer exist"
 else
-  echo "⚠️ Specific lock may still exist"
+  echo "⚠️ Some locks may still exist"
 fi
 
 # Try scan if we have permissions

@@ -1,58 +1,47 @@
-# Workflow Validation Report
+# Workflow Validation and Triggering Analysis
 
-## Summary
+## Current Workflow Configuration
 
-All GitHub Actions workflows have been validated and are ready for use. Minor formatting issues were fixed to ensure optimal code quality.
+### 1. Terraform Plan Workflow
+- **File**: [.github/workflows/terraform-plan.yml](.github/workflows/terraform-plan.yml)
+- **Triggers**:
+  - Pull requests to main/master branches
+  - Pushes to main/master branches (when terraform files change)
+  - Manual trigger (workflow_dispatch)
 
-## Validation Checks Performed
+### 2. Terraform Apply Workflow
+- **File**: [.github/workflows/terraform-apply.yml](.github/workflows/terraform-apply.yml)
+- **Triggers**:
+  - Pushes to main branch
+  - Manual trigger (workflow_dispatch)
 
-### 1. YAML Syntax Validation
-- ✅ All workflow files (.github/workflows/*.yml) pass YAML syntax validation
-- ✅ No syntax errors that would prevent workflows from running in GitHub Actions
+### 3. Kafka Deploy Workflow
+- **File**: [.github/workflows/kafka-deploy.yml](.github/workflows/kafka-deploy.yml)
+- **Triggers**:
+  - Completion of "Terraform Apply" workflow (success only)
+  - Manual trigger (workflow_dispatch)
 
-### 2. YAML Formatting Fixes
-- ✅ Fixed line ending issues (CRLF → LF)
-- ✅ Removed trailing spaces
-- ✅ Added missing newlines at end of files
-- ✅ Updated document start markers
+## Identified Issues
 
-### 3. GitHub Actions Syntax
-- ✅ Workflow triggers are properly configured
-- ✅ Environment variables are correctly defined
-- ✅ Job dependencies and conditions are properly set
+### 1. Workflow Name Mismatch
+The Kafka deploy workflow is configured to trigger on completion of a workflow named "Terraform Apply", but the actual name of the apply workflow is "Terraform Apply". This should work, but let's verify the exact name matching.
 
-### 4. Terraform Configuration
-- ✅ Terraform files are present and properly structured
-- ✅ Backend configuration is correctly set up
-- ✅ Variables are properly defined with validation
+### 2. Missing Direct Triggers
+There's no direct way to trigger the deploy workflow after plan without apply, which might be needed in some cases.
 
-## Remaining Minor Issues
+## Recommended Fixes
 
-These issues are non-critical and do not affect workflow functionality:
+### 1. Ensure Consistent Workflow Names
+Make sure the workflow names exactly match between the triggering workflow and the triggered workflow.
 
-1. Some lines exceed 80 characters (increased limit to 120 in yamllint config)
-2. Truthy value warnings (GitHub Actions handles these correctly)
-3. Document start warnings (GitHub Actions handles these correctly)
+### 2. Add Additional Trigger Options
+Consider adding more flexible triggering options for the deploy workflow.
 
-## Files Modified
+## Validation Results
 
-1. `.github/workflows/terraform-plan.yml` - Fixed formatting and syntax
-2. `.github/workflows/terraform-apply.yml` - Fixed formatting and syntax
-3. `.github/workflows/kafka-deploy.yml` - Fixed formatting and syntax
-4. `.yamllint.yml` - Added configuration to handle line lengths
-5. `terraform/environments/prod/terraform.tfvars.example` - Added example variables file
+The workflows are correctly configured to run in sequence:
+1. **Plan** → Runs on PRs and pushes to main
+2. **Apply** → Runs on pushes to main (after successful plan merge)
+3. **Deploy** → Runs after successful Apply completion
 
-## Recommendations
-
-1. Ensure GitHub repository secrets are properly configured:
-   - `TF_STATE_BUCKET` - S3 bucket for Terraform state
-   - `TF_STATE_LOCK_TABLE` - DynamoDB table for state locking
-
-2. Verify the GitHub Actions IAM role exists with proper permissions:
-   - `arn:aws:iam::907849381252:role/GitHubActionsKafkaDeployRole`
-
-3. Test workflows in a development branch before merging to main
-
-## Conclusion
-
-All workflows are now properly formatted and ready for use. They should pass all checks when pushed to GitHub.
+The triggering mechanism should work correctly as configured.
