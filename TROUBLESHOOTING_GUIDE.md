@@ -6,6 +6,7 @@
 2. **State Lock Issue**: "Error acquiring the state lock"
 3. **Workflow Triggering Problems**: Plan workflow not triggering, deploy workflow not running
 4. **IAM Permission Issues**: Missing permissions for OIDC provider operations
+5. **IAM Role Deletion Issues**: Missing permissions to list instance profiles for roles
 
 ## Root Causes
 
@@ -30,6 +31,7 @@ Missing IAM permissions can prevent Terraform from managing AWS resources proper
 - OIDC provider operations (create, delete, get)
 - DynamoDB operations (scan, get, put, delete)
 - S3 operations (list, get, put, delete)
+- IAM role and instance profile operations
 
 ## Solutions
 
@@ -144,7 +146,8 @@ Update the IAM policy attached to the GitHub Actions role to include the missing
         "iam:GetOpenIDConnectProvider",
         "iam:CreateOpenIDConnectProvider",
         "iam:DeleteOpenIDConnectProvider",
-        "iam:TagOpenIDConnectProvider"
+        "iam:TagOpenIDConnectProvider",
+        "iam:ListInstanceProfilesForRole"
       ],
       "Resource": "*"
     }
@@ -153,6 +156,15 @@ Update the IAM policy attached to the GitHub Actions role to include the missing
 ```
 
 After updating the policy, wait a few minutes for the changes to propagate, then try the operation again.
+
+### 5. Fix IAM Role Deletion Issues
+
+If you encounter permission errors when trying to delete IAM roles:
+```
+User: arn:aws:sts::ACCOUNT_ID:assumed-role/GitHubActionsKafkaDeployRole/SESSION is not authorized to perform: iam:ListInstanceProfilesForRole
+```
+
+This indicates that the GitHub Actions role is missing the `iam:ListInstanceProfilesForRole` permission. Update the IAM policy to include this permission as shown in the previous section.
 
 ## Step-by-Step Fix Process
 
@@ -473,4 +485,31 @@ This error indicates that the EKS node group instances are unable to join the Ku
    
    # Check CloudWatch logs for any errors
    aws logs describe-log-groups --log-group-name-prefix "/aws/eks"
+   ```
+
+## Specific Fix for IAM Role Deletion Issues
+
+The Terraform apply workflow is failing with the error:
+```
+Error: deleting IAM Role (kafka-eks-new-cluster-20251025142556452100000001): reading IAM Instance Profiles for Role (kafka-eks-new-cluster-20251025142556452100000001): operation error IAM: ListInstanceProfilesForRole, https response error StatusCode: 403, RequestID: 2b4663ba-faab-47af-92a1-01ea2979dc79, api error AccessDenied: User: arn:aws:sts::907849381252:assumed-role/GitHubActionsKafkaDeployRole/github-actions-140243f7617ff19a576ec4e1595c327581457643 is not authorized to perform: iam:ListInstanceProfilesForRole on resource: role kafka-eks-new-cluster-20251025142556452100000001 because no identity-based policy allows the iam:ListInstanceProfilesForRole action
+```
+
+This error indicates that the GitHub Actions role is missing the `iam:ListInstanceProfilesForRole` permission required to delete IAM roles. To fix this issue:
+
+1. **Update the IAM policy**:
+   - Add the `iam:ListInstanceProfilesForRole` permission to the GitHub Actions role
+   - Apply the updated configuration with `terraform apply -target=module.oidc -auto-approve`
+
+2. **Verify the permissions**:
+   ```bash
+   # Check the role policy
+   aws iam get-role-policy --role-name GitHubActionsKafkaDeployRole --policy-name terraform-kafka-permissions
+   
+   # Test the permission
+   aws iam list-instance-profiles-for-role --role-name kafka-eks-new-cluster-20251025142556452100000001
+   ```
+
+3. **Retry the Terraform apply**:
+   ```bash
+   terraform apply
    ```
