@@ -19,9 +19,17 @@ module "eks" {
       instance_types = var.node_group_instance_types
       capacity_type  = var.node_group_capacity_type
       
+      # Add bootstrap configuration to ensure nodes can join the cluster
+      bootstrap_extra_args = "--enable-docker-bridge true"
+      
       # Attach additional IAM policies for EBS CSI driver
       iam_role_additional_policies = {
         AmazonEBSCSIDriverPolicy = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+      }
+      
+      # Add tags to ensure proper identification
+      tags = {
+        Name = "${var.cluster_name}-node-group"
       }
     }
   }
@@ -40,5 +48,10 @@ module "eks" {
   tags = {
     Environment = "dev"
     Terraform   = "true"
+  }
+  
+  # Add node security group tags
+  node_security_group_tags = {
+    "kubernetes.io/cluster/${var.cluster_name}" = "owned"
   }
 }

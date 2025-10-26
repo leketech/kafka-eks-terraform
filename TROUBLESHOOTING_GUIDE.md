@@ -14,6 +14,7 @@ This error typically occurs when EKS node group instances cannot join the Kubern
 - Insufficient IAM permissions
 - Networking issues (security groups, VPC configuration)
 - Bootstrap configuration problems
+- Instance profile or role attachment issues
 
 ### State Lock Issue
 This happens when a Terraform operation is interrupted, leaving a lock entry in the DynamoDB table.
@@ -52,6 +53,19 @@ The role should have permissions for:
 - `iam:TagOpenIDConnectProvider`
 - `ec2:ModifyLaunchTemplate`
 - And all other permissions required for EKS cluster and node group management
+
+Additionally, check the EC2 instances and their status:
+
+```bash
+# Check EC2 instances
+aws ec2 describe-instances --filters "Name=tag:eks:cluster-name,Values=kafka-eks-new-1" --query 'Reservations[*].Instances[*].[InstanceId,State.Name,PrivateIpAddress,PublicIpAddress]' --output table
+
+# Check security groups
+aws ec2 describe-security-groups --filters "Name=tag:eks:cluster-name,Values=kafka-eks-new-1" --query 'SecurityGroups[*].[GroupId,GroupName,Description]' --output table
+
+# Check CloudWatch logs
+aws logs describe-log-groups --log-group-name-prefix "/aws/eks"
+```
 
 ### 2. Resolve State Lock Issue
 
@@ -404,3 +418,59 @@ To fix this specific issue:
    ```
 
 The updated GitHub Actions workflows now include enhanced lock cleanup steps that should automatically handle this issue in the future.
+
+## Specific Fix for Node Group Creation Failure
+
+The Terraform apply workflow is failing with the error:
+```
+Error: waiting for EKS Node Group (kafka-eks-new-1:eks_nodes-20251026064335904800000001) create: unexpected state 'CREATE_FAILED', wanted target 'ACTIVE'. last error: i-001a4bf09d16744e0, i-0f4f94a7229ce04d4, i-0fb59e2cde2feaf88: NodeCreationFailure: Instances failed to join the kubernetes cluster
+```
+
+This error indicates that the EKS node group instances are unable to join the Kubernetes cluster. To fix this issue:
+
+1. **Ensure IAM permissions are correct**:
+   - Verify that the GitHub Actions role has all required permissions
+   - Check that the EBS CSI driver policy is attached
+   - Ensure the role has the necessary EKS and EC2 permissions
+
+2. **Check networking configuration**:
+   - Verify that the VPC and subnets are correctly configured
+   - Ensure security groups allow proper communication
+   - Check that the NAT gateway is functioning properly
+
+3. **Verify instance configuration**:
+   - Check that the node group bootstrap configuration is correct
+   - Ensure the instance types are appropriate for the workload
+   - Verify that the instances can reach the EKS control plane
+
+4. **Apply the fix**:
+   ```bash
+   # Clean up any existing state
+   cd terraform/environments/prod
+   rm -rf .terraform
+   rm -f .terraform.lock.hcl
+   rm -f terraform.tfstate.backup
+   
+   # Re-initialize Terraform
+   terraform init \
+     -backend-config="bucket=YOUR_TF_STATE_BUCKET" \
+     -backend-config="key=kafka-eks-new/terraform.tfstate" \
+     -backend-config="region=us-east-1" \
+     -backend-config="dynamodb_table=terraform-locks"
+   
+   # Apply the updated configuration
+   terraform apply -target=module.oidc -auto-approve
+   terraform apply -target=module.eks -auto-approve
+   ```
+
+5. **Monitor the deployment**:
+   ```bash
+   # Check the status of the node group
+   aws eks describe-nodegroup --cluster-name kafka-eks-new-1 --nodegroup-name eks_nodes-20251026064335904800000001
+   
+   # Check EC2 instances
+   aws ec2 describe-instances --filters "Name=tag:eks:cluster-name,Values=kafka-eks-new-1"
+   
+   # Check CloudWatch logs for any errors
+   aws logs describe-log-groups --log-group-name-prefix "/aws/eks"
+   ```

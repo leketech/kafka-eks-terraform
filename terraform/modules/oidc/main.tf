@@ -290,3 +290,9 @@ resource "aws_iam_role_policy_attachment" "github_actions_ecr_readonly" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
   role       = aws_iam_role.github_actions.name
 }
+
+# Additional policy for EBS CSI driver
+resource "aws_iam_role_policy_attachment" "github_actions_ebs_csi_driver" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  role       = aws_iam_role.github_actions.name
+}
